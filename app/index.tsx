@@ -1,26 +1,20 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, ActivityIndicator } from 'react-native';
-import { useFonts } from 'expo-font';
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+
 
 export default function Home() {
-  const [fontsLoaded] = useFonts({
-    'PlayfairDisplay-Medium': require('../assets/fonts/PlayfairDisplay-Medium.ttf'),
-  });
-
-  if (!fontsLoaded) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#C71585" />
-        <Text style={styles.loadingText}>Loading Glamora...</Text>
-      </View>
-    );
-  }
+  const router = useRouter();
 
   return (
     <View style={styles.container}>
-      <Image source={require('../assets/logo.jpg')} style={styles.logo} />
-      <Text style={styles.text}>Welcome to Glamora</Text>
+      <Image source={require('../assets/logo.png')} style={styles.logo} />
+      <Text style={styles.text}>WELCOME TO GLAMORA</Text>
       <Text style={styles.subtext}>Choose your outfit</Text>
+
+      <TouchableOpacity style={styles.button} onPress={() => router.push('/login' as never)}>
+        <Text style={styles.buttonText}>GET STARTED</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -30,41 +24,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F4C2C2',
     alignItems: 'center',
-    paddingTop: 40, 
+    paddingTop: 30,
   },
-
   logo: {
     width: 200,
     height: 200,
     resizeMode: 'contain',
-    marginBottom: 30,
+    marginBottom: 20,
   },
-
   text: {
     fontSize: 36,
-    color: '#333',
     fontFamily: 'PlayfairDisplay-Medium',
-    textAlign: 'center',
-    marginBottom: 5, // space between title and subtitle
+    marginBottom: 5,
+    textAlign: 'center',
+    color: 'white',
   },
-
   subtext: {
     fontSize: 20,
-    color: '#555',
     fontFamily: 'PlayfairDisplay-Medium',
-    textAlign: 'center',
+    marginBottom: 20,
+    color: 'white',
   },
-
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F4C2C2',
+  button: {
+    backgroundColor: '#FDD6A5',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    marginTop: 150,
+    width: 225,
   },
-
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#C71585',
+  buttonText: {
+    color: 'black',
+    fontSize: 23,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
