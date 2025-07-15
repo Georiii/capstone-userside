@@ -1,0 +1,153 @@
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+export default function Register() {
+  const router = useRouter();
+
+  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const handleSignUp = () => {
+    if (password !== confirmPassword) {
+      alert('Passwords do not match!');
+      return;
+    }
+
+    // Replace this with your signup logic (e.g. API call)
+    alert('Account created!');
+    router.push('/login'); // ✅ Correct navigation in Expo Router
+  };
+
+  return (
+    <View style={styles.container}>
+      <Image source={require('../assets/logo.png')} style={styles.logo} />
+      <Text style={styles.header}>Create an account</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Name"
+        placeholderTextColor="white"
+        value={name}
+        onChangeText={setName}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Username"
+        placeholderTextColor="white"
+        value={username}
+        onChangeText={setUsername}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        placeholderTextColor="white"
+        value={email}
+        onChangeText={setEmail}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        placeholderTextColor="white"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Confirm Password"
+        placeholderTextColor="white"
+        secureTextEntry
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+      />
+
+      <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
+        <Text style={styles.signUpButtonText}>Sign up</Text>
+      </TouchableOpacity>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Already have an account? </Text>
+        <TouchableOpacity onPress={() => router.push('/login')}>
+          <Text style={styles.loginText}>Login</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F4C2C2',
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+
+  logo: {
+    width: 60,
+    height: 60,
+    resizeMode: 'contain',
+    position: 'absolute',
+    top: 40,
+    right: 20,
+  },
+
+  header: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 100,
+    marginBottom: 20,
+  },
+
+  input: {
+    width: 270,
+    height: 50,
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    marginTop: 12,
+    color: 'black',
+  },
+
+  signUpButton: {
+    width: 150,
+    height: 40,
+    backgroundColor: '#FFE8C8',
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 25,
+  },
+
+  signUpButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    textDecorationLine: 'underline',
+  },
+
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 50,
+  },
+
+  footerText: {
+    color: 'white',
+    fontSize: 13,
+  },
+
+  loginText: {
+    color: '#F88379',
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
+});
