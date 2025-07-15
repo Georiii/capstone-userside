@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function Register() {
   const router = useRouter();
@@ -10,8 +11,18 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSignUp = () => {
+    if (!name || !username || !email || !password || !confirmPassword) {
+      Alert.alert('Please fill in all fields.');
+      return;
+    }
+    if (!/@(gmail|yahoo|outlook)\.com$/.test(email)) {
+      Alert.alert('Email must be a valid Gmail, Yahoo, or Outlook address.');
+      return;
+    }
     if (password !== confirmPassword) {
       alert('Passwords do not match!');
       return;
@@ -48,22 +59,32 @@ export default function Register() {
         value={email}
         onChangeText={setEmail}
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="white"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Confirm Password"
-        placeholderTextColor="white"
-        secureTextEntry
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-      />
+      <View style={{ width: 270, flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
+        <TextInput
+          style={[styles.input, { flex: 1, marginTop: 0 }]}
+          placeholder="Password"
+          placeholderTextColor="white"
+          secureTextEntry={!showPassword}
+          value={password}
+          onChangeText={setPassword}
+        />
+        <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={{ position: 'absolute', right: 10 }}>
+          <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="gray" />
+        </TouchableOpacity>
+      </View>
+      <View style={{ width: 270, flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
+        <TextInput
+          style={[styles.input, { flex: 1, marginTop: 0 }]}
+          placeholder="Confirm Password"
+          placeholderTextColor="white"
+          secureTextEntry={!showConfirmPassword}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+        />
+        <TouchableOpacity onPress={() => setShowConfirmPassword((prev) => !prev)} style={{ position: 'absolute', right: 10 }}>
+          <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={22} color="gray" />
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
         <Text style={styles.signUpButtonText}>Sign up</Text>
@@ -85,7 +106,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4C2C2',
     padding: 20,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
   },
 
   logo: {
@@ -93,16 +114,17 @@ const styles = StyleSheet.create({
     height: 60,
     resizeMode: 'contain',
     position: 'absolute',
-    top: 40,
-    right: 20,
+    top: 50,
+    right: 15,
   },
 
   header: {
     fontSize: 26,
     fontWeight: 'bold',
     color: 'white',
-    marginTop: 100,
+    marginTop: 0,
     marginBottom: 20,
+    textAlign: 'center',
   },
 
   input: {
@@ -122,7 +144,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 25,
+    marginTop: 50,
+    alignSelf: 'center',
   },
 
   signUpButtonText: {
