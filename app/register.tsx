@@ -2,20 +2,24 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { auth } from '../firebaseConfig';
+import { auth, db } from '../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function Register() {
   const router = useRouter();
 
+  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleSignUp = async () => {
-    if (!email || !password || !confirmPassword) {
+    if (!name || !username || !email || !password || !confirmPassword) {
       Alert.alert('Please fill in all fields.');
       return;
     }
@@ -27,58 +31,104 @@ export default function Register() {
       Alert.alert('Passwords do not match!');
       return;
     }
-
+    setLoading(true);
     try {
-      Alert.alert('Creating account...'); // Debug alert
-      await createUserWithEmailAndPassword(auth, email, password);
-      Alert.alert('Account created successfully!'); // Debug alert
-      router.push('/login');
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      // Save additional user info to Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        name: name,
+        username: username,
+        email: email,
+        createdAt: new Date(),
+        wardrobe: {
+          tops: [],
+          bottoms: [],
+          shoes: [],
+          accessories: []
+        }
+      });
+      setLoading(false);
+      Alert.alert('Account created successfully!');
+      router.push({ pathname: '/login', params: { fromRegister: 'true' } });
     } catch (error: any) {
-      Alert.alert('Registration error: ' + error.message); // Debug alert
+      setLoading(false);
+      Alert.alert('Registration error: ' + (error.message || 'Unknown error'));
     }
   };
 
   return (
     <View style={styles.container}>
-      <Image source={require('../assets/logo.png')} style={styles.logo} />
+      {/* Logo and Brand */}
+      <View style={styles.logoContainer}>
+        <Image source={require('../assets/logo.png')} style={styles.logo} />
+        <Text style={styles.brandText}>GLAMORA</Text>
+      </View>
+
       <Text style={styles.header}>Create an account</Text>
 
       <TextInput
         style={styles.input}
+        placeholder="Name"
+        placeholderTextColor="rgba(255, 255, 255, 0.8)"
+        value={name}
+        onChangeText={setName}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Username"
+        placeholderTextColor="rgba(255, 255, 255, 0.8)"
+        value={username}
+        onChangeText={setUsername}
+      />
+
+      <TextInput
+        style={styles.input}
         placeholder="Email"
-        placeholderTextColor="white"
+        placeholderTextColor="rgba(255, 255, 255, 0.8)"
         value={email}
         onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
       />
-      <View style={{ width: 270, flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
+
+      <View style={styles.passwordContainer}>
         <TextInput
-          style={[styles.input, { flex: 1, marginTop: 0 }]}
+          style={[styles.input, styles.passwordInput]}
           placeholder="Password"
-          placeholderTextColor="white"
+          placeholderTextColor="rgba(255, 255, 255, 0.8)"
           secureTextEntry={!showPassword}
           value={password}
           onChangeText={setPassword}
         />
-        <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={{ position: 'absolute', right: 10 }}>
-          <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="gray" />
+        <TouchableOpacity 
+          onPress={() => setShowPassword((prev) => !prev)} 
+          style={styles.eyeIcon}
+        >
+          <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="rgba(255, 255, 255, 0.8)" />
         </TouchableOpacity>
       </View>
-      <View style={{ width: 270, flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
+
+      <View style={styles.passwordContainer}>
         <TextInput
-          style={[styles.input, { flex: 1, marginTop: 0 }]}
+          style={[styles.input, styles.passwordInput]}
           placeholder="Confirm Password"
-          placeholderTextColor="white"
+          placeholderTextColor="rgba(255, 255, 255, 0.8)"
           secureTextEntry={!showConfirmPassword}
           value={confirmPassword}
           onChangeText={setConfirmPassword}
         />
-        <TouchableOpacity onPress={() => setShowConfirmPassword((prev) => !prev)} style={{ position: 'absolute', right: 10 }}>
-          <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={22} color="gray" />
+        <TouchableOpacity 
+          onPress={() => setShowConfirmPassword((prev) => !prev)} 
+          style={styles.eyeIcon}
+        >
+          <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={22} color="rgba(255, 255, 255, 0.8)" />
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
-        <Text style={styles.signUpButtonText}>Sign up</Text>
+      <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp} disabled={loading}>
+        <Text style={styles.signUpButtonText}>{loading ? 'Signing up...' : 'Sign up'}</Text>
       </TouchableOpacity>
 
       <View style={styles.footer}>
@@ -99,47 +149,83 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logo: {
-    width: 60,
-    height: 60,
-    resizeMode: 'contain',
+
+  logoContainer: {
     position: 'absolute',
     top: 50,
-    right: 15,
+    right: 20,
+    alignItems: 'center',
   },
+
+  logo: {
+    width: 50,
+    height: 50,
+    resizeMode: 'contain',
+  },
+
+  brandText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 5,
+  },
+
   header: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: 'bold',
     color: 'white',
-    marginTop: 0,
-    marginBottom: 20,
+    marginBottom: 40,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
+
   input: {
-    width: 270,
+    width: 280,
     height: 50,
-    borderRadius: 20,
+    borderRadius: 25,
     paddingHorizontal: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    marginTop: 12,
-    color: 'black',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginBottom: 15,
+    color: 'white',
+    fontSize: 16,
   },
+
+  passwordContainer: {
+    width: 280,
+    position: 'relative',
+    marginBottom: 15,
+  },
+
+  passwordInput: {
+    marginBottom: 0,
+  },
+
+  eyeIcon: {
+    position: 'absolute',
+    right: 15,
+    top: 14,
+  },
+
   signUpButton: {
-    width: 150,
-    height: 40,
+    width: 160,
+    height: 45,
     backgroundColor: '#FFE8C8',
-    borderRadius: 20,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 50,
+    marginTop: 30,
     alignSelf: 'center',
   },
+
   signUpButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: '#000',
     textDecorationLine: 'underline',
   },
+
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -147,13 +233,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 50,
   },
+
   footerText: {
     color: 'white',
-    fontSize: 13,
+    fontSize: 14,
   },
+
   loginText: {
     color: '#F88379',
-    fontSize: 13,
+    fontSize: 14,
     textDecorationLine: 'underline',
+    fontWeight: 'bold',
   },
 });

@@ -1,15 +1,33 @@
-import { useRouter } from 'expo-router';
-import React from 'react';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { auth } from '../firebaseConfig';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 
 export default function Login() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && params.fromRegister !== 'true') {
+        router.push('/wardrobe');
+      }
+      setCheckingAuth(false);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [params]);
+
+  if (checkingAuth) {
+    return null; // or a loading spinner if you prefer
+  }
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -23,7 +41,7 @@ export default function Login() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       Alert.alert('Login successful!');
-      // Navigate to home or dashboard
+      router.push('/wardrobe');
     } catch (error: any) {
       Alert.alert(error.message);
     }
@@ -66,7 +84,7 @@ export default function Login() {
       </TouchableOpacity>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Don’t have an account? </Text>
+        <Text style={styles.footerText}>Don't have an account? </Text>
         <TouchableOpacity onPress={() => router.push('/register')}>
           <Text style={styles.signUpText}>Sign up.</Text>
         </TouchableOpacity>
@@ -83,6 +101,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   logo: {
     width: 60,
     height: 60,
@@ -91,6 +110,7 @@ const styles = StyleSheet.create({
     top: 40,
     right: 10,
   },
+
   text: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -100,6 +120,7 @@ const styles = StyleSheet.create({
     lineHeight: 35,
     textAlign: 'center',
   },
+
   input: {
     width: 270,
     height: 50,
@@ -111,6 +132,7 @@ const styles = StyleSheet.create({
     marginTop: 15,
     color: 'black',
   },
+
   loginButton: {
     width: 150,
     height: 40,
@@ -121,12 +143,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 40,
   },
+
   loginButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#000',
     textDecorationLine: 'underline',
   },
+
   forgotPassword: {
     color: 'white',
     fontSize: 13,
@@ -134,6 +158,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 10,
   },
+
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -142,10 +167,12 @@ const styles = StyleSheet.create({
     bottom: 50,
     alignSelf: 'center',
   },
+
   footerText: {
     color: 'white',
     fontSize: 13,
   },
+
   signUpText: {
     color: '#F88379',
     fontSize: 13,
