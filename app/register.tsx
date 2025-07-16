@@ -2,20 +2,20 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { auth } from '../firebaseConfig';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 
 export default function Register() {
   const router = useRouter();
 
-  const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleSignUp = () => {
-    if (!name || !username || !email || !password || !confirmPassword) {
+  const handleSignUp = async () => {
+    if (!email || !password || !confirmPassword) {
       Alert.alert('Please fill in all fields.');
       return;
     }
@@ -24,13 +24,18 @@ export default function Register() {
       return;
     }
     if (password !== confirmPassword) {
-      alert('Passwords do not match!');
+      Alert.alert('Passwords do not match!');
       return;
     }
 
-    // Replace this with your signup logic (e.g. API call)
-    alert('Account created!');
-    router.push('/login'); // ✅ Correct navigation in Expo Router
+    try {
+      Alert.alert('Creating account...'); // Debug alert
+      await createUserWithEmailAndPassword(auth, email, password);
+      Alert.alert('Account created successfully!'); // Debug alert
+      router.push('/login');
+    } catch (error: any) {
+      Alert.alert('Registration error: ' + error.message); // Debug alert
+    }
   };
 
   return (
@@ -38,20 +43,6 @@ export default function Register() {
       <Image source={require('../assets/logo.png')} style={styles.logo} />
       <Text style={styles.header}>Create an account</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Name"
-        placeholderTextColor="white"
-        value={name}
-        onChangeText={setName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Username"
-        placeholderTextColor="white"
-        value={username}
-        onChangeText={setUsername}
-      />
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -108,7 +99,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   logo: {
     width: 60,
     height: 60,
@@ -117,7 +107,6 @@ const styles = StyleSheet.create({
     top: 50,
     right: 15,
   },
-
   header: {
     fontSize: 26,
     fontWeight: 'bold',
@@ -126,7 +115,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-
   input: {
     width: 270,
     height: 50,
@@ -136,7 +124,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: 'black',
   },
-
   signUpButton: {
     width: 150,
     height: 40,
@@ -147,14 +134,12 @@ const styles = StyleSheet.create({
     marginTop: 50,
     alignSelf: 'center',
   },
-
   signUpButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#000',
     textDecorationLine: 'underline',
   },
-
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -162,12 +147,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 50,
   },
-
   footerText: {
     color: 'white',
     fontSize: 13,
   },
-
   loginText: {
     color: '#F88379',
     fontSize: 13,

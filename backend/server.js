@@ -71,4 +71,17 @@ app.post('/forgot-password', async (req, res) => {
   return res.json({ success: true, message: 'If this email exists, a reset link will be sent.' });
 });
 
+app.post('/register', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ success: false, message: 'Email and password required' });
+
+  const existingUser = await User.findOne({ email });
+  if (existingUser) return res.status(409).json({ success: false, message: 'User already exists' });
+
+  const user = new User({ email, password });
+  await user.save();
+
+  return res.json({ success: true, message: 'User registered successfully' });
+});
+
 app.listen(3000, () => console.log('🚀 Server running on http://localhost:3000'));

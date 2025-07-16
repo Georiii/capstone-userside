@@ -2,25 +2,31 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { auth } from '../firebaseConfig';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 export default function Login() {
   const router = useRouter();
-  const [username, setUsername] = React.useState('');
+  const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
 
-  const handleLogin = () => {
-    if (!username || !password) {
+  const handleLogin = async () => {
+    if (!email || !password) {
       Alert.alert('Please fill in all fields.');
       return;
     }
-    // If username looks like an email, validate domain
-    if (username.includes('@') && !(/@(gmail|yahoo|outlook)\.com$/.test(username))) {
+    if (email.includes('@') && !(/@(gmail|yahoo|outlook)\.com$/.test(email))) {
       Alert.alert('Email must be a valid Gmail, Yahoo, or Outlook address.');
       return;
     }
-    // Proceed with login logic here
-    Alert.alert('Login logic not implemented.');
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      Alert.alert('Login successful!');
+      // Navigate to home or dashboard
+    } catch (error: any) {
+      Alert.alert(error.message);
+    }
   };
 
   return (
@@ -31,10 +37,10 @@ export default function Login() {
 
       <TextInput
         style={styles.input}
-        placeholder="Username"
+        placeholder="Email"
         placeholderTextColor="white"
-        value={username}
-        onChangeText={setUsername}
+        value={email}
+        onChangeText={setEmail}
       />
 
       <View style={{ width: 270, flexDirection: 'row', alignItems: 'center', marginTop: 15 }}>
@@ -77,7 +83,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   logo: {
     width: 60,
     height: 60,
@@ -86,7 +91,6 @@ const styles = StyleSheet.create({
     top: 40,
     right: 10,
   },
-
   text: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -96,7 +100,6 @@ const styles = StyleSheet.create({
     lineHeight: 35,
     textAlign: 'center',
   },
-
   input: {
     width: 270,
     height: 50,
@@ -108,7 +111,6 @@ const styles = StyleSheet.create({
     marginTop: 15,
     color: 'black',
   },
-
   loginButton: {
     width: 150,
     height: 40,
@@ -119,14 +121,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 40,
   },
-
   loginButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#000',
     textDecorationLine: 'underline',
   },
-
   forgotPassword: {
     color: 'white',
     fontSize: 13,
@@ -134,7 +134,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 10,
   },
-
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -143,12 +142,10 @@ const styles = StyleSheet.create({
     bottom: 50,
     alignSelf: 'center',
   },
-
   footerText: {
     color: 'white',
     fontSize: 13,
   },
-
   signUpText: {
     color: '#F88379',
     fontSize: 13,
