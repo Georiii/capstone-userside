@@ -1,7 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CABINET_WIDTH = SCREEN_WIDTH * 0.65;
+const CABINET_HEIGHT = CABINET_WIDTH / 0.87; // aspect ratio 0.87 (w/h)
 
 export default function Wardrobe() {
   const categories = [
@@ -44,30 +48,28 @@ export default function Wardrobe() {
 
       {/* Main Content */}
       <View style={styles.content}>
-        {/* Wardrobe Background */}
+        {/* Wardrobe Background with Cabinet Image */}
         <View style={styles.wardrobeContainer}>
-          <View style={styles.wardrobe}>
-            {/* Wardrobe shelves */}
-            <View style={styles.shelf} />
-            <View style={styles.shelf} />
-            <View style={styles.shelf} />
-            <View style={styles.drawer} />
-            <View style={styles.drawer} />
-          </View>
-
-          {/* Category Cards Overlay */}
-          <View style={styles.categoriesGrid}>
-            {categories.map((category, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.categoryCard}
-                onPress={() => handleCategoryPress(category.name)}
-              >
-                <Ionicons name={category.icon} size={40} color="#333" />
-                <Text style={styles.categoryText}>{category.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <ImageBackground
+            source={require('../assets/cabinet.png')}
+            style={styles.cabinetBackground}
+            imageStyle={styles.cabinetImage}
+            resizeMode="contain"
+          >
+            {/* Category Cards Overlay */}
+            <View style={styles.categoriesGrid}>
+              {categories.map((category, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.categoryCard}
+                  onPress={() => handleCategoryPress(category.name)}
+                >
+                  <Ionicons name={category.icon} size={40} color="#333" />
+                  <Text style={styles.categoryText}>{category.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ImageBackground>
         </View>
       </View>
 
@@ -77,7 +79,7 @@ export default function Wardrobe() {
           <Ionicons name="shirt" size={24} color="#333" />
           <Text style={[styles.navText, styles.activeText]}>Wardrobe</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/scan')}>
           <Ionicons name="camera" size={24} color="#666" />
           <Text style={styles.navText}>Scan</Text>
         </TouchableOpacity>
@@ -139,59 +141,52 @@ const styles = StyleSheet.create({
   },
   wardrobeContainer: {
     width: '100%',
-    height: '80%',
-    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    marginBottom: 10,
   },
-  wardrobe: {
+  cabinetBackground: {
+    width: CABINET_WIDTH,
+    height: CABINET_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  cabinetImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#DEB887',
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#8B4513',
-    position: 'relative',
-  },
-  shelf: {
-    height: 4,
-    backgroundColor: '#8B4513',
-    marginVertical: 20,
-    marginHorizontal: 10,
-  },
-  drawer: {
-    height: 60,
-    backgroundColor: '#CD853F',
-    marginHorizontal: 10,
-    marginTop: 10,
-    borderRadius: 5,
+    opacity: 1,
+    alignSelf: 'center',
   },
   categoriesGrid: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    padding: 0,
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    padding: 20,
   },
   categoryCard: {
-    width: '45%',
-    height: '40%',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 15,
+    width: '44%',
+    aspectRatio: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    margin: 5,
+    margin: '3%',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
     shadowRadius: 3.84,
-    elevation: 5,
+    elevation: 4,
   },
   categoryText: {
     fontSize: 16,
