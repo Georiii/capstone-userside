@@ -2,9 +2,8 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { auth, db } from '../firebaseConfig';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+
+// Remove Firebase imports and usage. Refactor registration to use your backend API.
 
 export default function Register() {
   const router = useRouter();
@@ -33,22 +32,21 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      // Save additional user info to Firestore
-      await setDoc(doc(db, 'users', user.uid), {
-        name: name,
-        username: username,
-        email: email,
-        createdAt: new Date(),
-        wardrobe: {
-          tops: [],
-          bottoms: [],
-          shoes: [],
-          accessories: []
-        }
+      // Use your backend registration endpoint
+      const response = await fetch('http://192.168.1.6:3000/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, username, email, password }),
       });
-      setLoading(false);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Registration failed');
+      }
+
+      const data = await response.json();
       Alert.alert('Account created successfully!');
       router.push({ pathname: '/login', params: { fromRegister: 'true' } });
     } catch (error: any) {

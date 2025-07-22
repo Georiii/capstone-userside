@@ -22,19 +22,11 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/logo.png"
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ]
+      "expo-dev-client"
     ],
     "experiments": {
       "typedRoutes": true
@@ -44,6 +36,7 @@
       "eas": {
         "projectId": "e939fc72-a48a-4a32-bd3b-017e22cdb406"
       }
-    }
+    },
+    "owner": "francisandrei"
   }
 }

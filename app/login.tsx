@@ -2,8 +2,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { auth } from '../firebaseConfig';
-import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Remove Firebase imports and usage. Refactor login to use your backend API.
 
 export default function Login() {
   const router = useRouter();
@@ -14,15 +15,8 @@ export default function Login() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && params.fromRegister !== 'true') {
-        router.push('/wardrobe');
-      }
-      setCheckingAuth(false);
-    });
-    return () => {
-      unsubscribe();
-    };
+    // Remove Firebase onAuthStateChanged usage.
+    setCheckingAuth(false);
   }, [params]);
 
   if (checkingAuth) {
@@ -39,11 +33,23 @@ export default function Login() {
       return;
     }
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      Alert.alert('Login successful!');
-      router.push('/wardrobe');
+      const response = await fetch('http://192.168.1.6:3000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        Alert.alert('Login successful!');
+        await AsyncStorage.setItem('token', data.token);
+        router.push('/wardrobe');
+      } else {
+        Alert.alert(data.message || 'Login failed.');
+      }
     } catch (error: any) {
-      Alert.alert(error.message);
+      Alert.alert(error.message || 'Login failed.');
     }
   };
 

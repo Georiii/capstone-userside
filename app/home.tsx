@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { auth } from '../firebaseConfig';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { useRouter } from 'expo-router';
 
 export default function Home() {
@@ -9,23 +7,17 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      if (!user) {
-        router.push('/login');
-      }
-    });
-
-    return unsubscribe;
+    // Remove Firebase authentication state listener
+    // You will need to implement your own authentication state management
+    // For now, we'll just set a dummy user or handle login/logout directly
+    // Example: setUser({ email: 'test@example.com' }); // For testing
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+    // Remove Firebase signOut
+    // You will need to implement your own logout logic
+    console.log('Logout clicked');
+    // Example: router.push('/login');
   };
 
   if (!user) {

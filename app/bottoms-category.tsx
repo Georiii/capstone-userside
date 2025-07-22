@@ -1,68 +1,148 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams } from 'expo-router';
 
 export default function BottomsCategory() {
-  const bottomTypes = [
-    { name: 'Jeans', icon: 'shirt' as const },
-    { name: 'Trousers', icon: 'shirt' as const },
-    { name: 'Shorts', icon: 'shirt' as const },
-    { name: 'Skirts', icon: 'shirt' as const },
-    { name: 'Leggings', icon: 'shirt' as const },
-    { name: 'Joggers', icon: 'shirt' as const },
+  const params = useLocalSearchParams();
+  const categoryType = params.type || 'Bottoms';
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Subcategories for Bottoms
+  const subcategories = [
+    { name: 'Jeans', type: 'Jeans', image: require('../assets/jeans-sample.png') },
+    { name: 'Trousers', type: 'Trousers', image: require('../assets/trousers-sample.png') },
+    { name: 'Shorts', type: 'Shorts', image: require('../assets/shorts-sample.png') },
+    { name: 'Skirts', type: 'Skirts', image: require('../assets/skirts-sample.png') },
+    { name: 'Leggings', type: 'Leggings', image: require('../assets/leggings-sample.png') },
+    { name: 'Joggers', type: 'Joggers', image: require('../assets/joggers-sample.png') },
   ];
+
+  const handleSubcategoryPress = (subcategory: { name: string, type: string }) => {
+    router.push({ pathname: '/bottoms-category', params: { type: subcategory.type } });
+  };
+
+  useEffect(() => {
+    const fetchWardrobe = async () => {
+      setLoading(true);
+      try {
+        const token = await AsyncStorage.getItem('token');
+        const response = await fetch('http://192.168.1.6:3000/api/wardrobe/', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setItems(data.items.filter((item: any) => (item.categories || []).includes(categoryType)));
+        } else {
+          setItems([]);
+        }
+      } catch (err) {
+        setItems([]);
+      }
+      setLoading(false);
+    };
+    fetchWardrobe();
+  }, [categoryType]);
+
+  const handleAddMore = () => {
+    router.push('/scan');
+  };
+
+  // If on the main category page (not filtered), show subcategories
+  if (!params.type || params.type === 'Bottoms') {
+    return (
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.gCircle}><Text style={styles.gText}>G</Text></View>
+          <Text style={styles.headerText}>GLAMORA</Text>
+        </View>
+        <Text style={styles.categoryTitle}>CATEGORY</Text>
+        <View style={styles.subcategoriesGrid}>
+          {subcategories.map((sub, idx) => (
+            <TouchableOpacity
+              key={idx}
+              style={styles.subcategoryCard}
+              onPress={() => handleSubcategoryPress(sub)}
+            >
+              <Image source={sub.image} style={styles.subcategoryImage} />
+              <Text style={styles.subcategoryLabel}>{sub.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {/* Bottom Navigation (reuse from wardrobe) */}
+        <View style={styles.navigation}>
+          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/wardrobe')}>
+            <Ionicons name="shirt" size={24} color="#333" />
+            <Text style={[styles.navText, styles.activeText]}>Wardrobe</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/scan')}>
+            <Ionicons name="camera" size={24} color="#666" />
+            <Text style={styles.navText}>Scan</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.navItem}>
+            <Ionicons name="cart" size={24} color="#666" />
+            <Text style={styles.navText}>Market</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.navItem}>
+            <Ionicons name="person" size={24} color="#666" />
+            <Text style={styles.navText}>Profile</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>G</Text>
-          </View>
-          <Text style={styles.appName}>GLAMORA</Text>
-        </View>
-      </View>
-
-      {/* Main Content */}
-      <View style={styles.content}>
-        <Text style={styles.categoryTitle}>BOTTOMS</Text>
-        
-        <ScrollView contentContainerStyle={styles.categoriesContainer}>
-          {bottomTypes.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.categoryItem}
-            >
-              <View style={styles.categoryImage}>
-                <Ionicons name={item.icon} size={50} color="#333" />
-              </View>
-              <Text style={styles.categoryName}>{item.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Bottom Navigation */}
-      <View style={styles.navigation}>
-        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/wardrobe')}>
-          <Ionicons name="shirt" size={24} color="#333" />
-          <Text style={[styles.navText, styles.activeText]}>Wardrobe</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ position: 'absolute', left: 20, top: 55, zIndex: 2 }}>
+          <Ionicons name="arrow-back" size={28} color="#000" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="camera" size={24} color="#666" />
-          <Text style={styles.navText}>Scan</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="cart" size={24} color="#666" />
-          <Text style={styles.navText}>Market</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="person" size={24} color="#666" />
-          <Text style={styles.navText}>Profile</Text>
+        <Text style={styles.categoryTitle}>{categoryType}</Text>
+        <TouchableOpacity style={{ position: 'absolute', right: 20, top: 55, zIndex: 2 }}>
+          <Ionicons name="trash" size={24} color="#E74C3C" />
         </TouchableOpacity>
       </View>
+      <ScrollView contentContainerStyle={styles.gridContainer}>
+        {loading ? (
+          <ActivityIndicator size="large" color="#8B4513" style={{ marginTop: 30 }} />
+        ) : (
+          <>
+            <View style={styles.row}>
+              {items.map((item, index) => (
+                <TouchableOpacity
+                  key={item._id || index}
+                  style={styles.itemCard}
+                  onPress={() => router.push({
+                    pathname: '/item-detail',
+                    params: {
+                      itemId: item._id,
+                      imageUrl: item.imageUrl,
+                      clothName: item.clothName,
+                      description: item.description,
+                      occasion: (item.occasions && item.occasions[0]) || '',
+                      category: categoryType,
+                    }
+                  })}
+                >
+                  <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+                  <Text style={styles.itemLabel}>{item.clothName || 'Cloth name'}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={styles.addMoreCard} onPress={handleAddMore}>
+                <Ionicons name="add" size={32} color="#000" />
+                <Text style={styles.addMoreLabel}>Add more</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -70,88 +150,84 @@ export default function BottomsCategory() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4C2C2',
+    backgroundColor: '#F9F3F0',
+    paddingBottom: 90, // Add extra space for the fixed footer
   },
   header: {
-    backgroundColor: '#F4C2C2',
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-  },
-  logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingTop: 40,
+    paddingBottom: 16,
+    paddingHorizontal: 24,
+    backgroundColor: '#F9F3F0',
+    justifyContent: 'flex-start',
   },
   logo: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#8B4513',
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
+    resizeMode: 'contain',
+    marginRight: 12,
   },
-  logoText: {
-    fontSize: 20,
+  headerText: {
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#8B4513',
-  },
-  appName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#8B4513',
+    color: '#4B2E2B',
     fontFamily: 'serif',
-  },
-  content: {
-    flex: 1,
-    backgroundColor: '#FEFEFE',
-    paddingHorizontal: 20,
+    letterSpacing: 1,
   },
   categoryTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#000',
-    textAlign: 'center',
-    marginTop: 20,
-    marginBottom: 30,
+    color: '#222',
+    marginLeft: 24,
+    marginTop: 10,
+    marginBottom: 18,
   },
-  categoriesContainer: {
+  subcategoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    paddingBottom: 20,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 16,
+    marginBottom: 20,
   },
-  categoryItem: {
-    width: '45%',
+  subcategoryCard: {
+    width: 90,
     alignItems: 'center',
-    marginBottom: 30,
+    margin: 12,
   },
-  categoryImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  subcategoryImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     borderWidth: 2,
-    borderColor: '#000',
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
+    borderColor: '#222',
+    marginBottom: 8,
+    resizeMode: 'cover',
   },
-  categoryName: {
+  subcategoryLabel: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#222',
     textAlign: 'center',
   },
   navigation: {
     flexDirection: 'row',
-    backgroundColor: '#E8E8E8',
+    backgroundColor: '#F5F2EF',
     paddingVertical: 15,
     paddingHorizontal: 20,
-    paddingBottom: 35,
     justifyContent: 'space-around',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 2,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 100,
   },
   navItem: {
     alignItems: 'center',
@@ -164,5 +240,85 @@ const styles = StyleSheet.create({
   activeText: {
     color: '#333',
     fontWeight: 'bold',
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 16,
+    paddingTop: 20,
+  },
+  row: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: '100%',
+    justifyContent: 'flex-start',
+  },
+  itemCard: {
+    width: '44%',
+    margin: '3%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    alignItems: 'center',
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  itemImage: {
+    width: 140,
+    height: 140,
+    borderRadius: 10,
+    marginBottom: 6,
+    resizeMode: 'cover',
+  },
+  itemLabel: {
+    fontSize: 15,
+    color: '#222',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  addMoreCard: {
+    width: '44%',
+    margin: '3%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    height: 180,
+    borderWidth: 1,
+    borderColor: '#222',
+    borderStyle: 'dashed',
+  },
+  addMoreLabel: {
+    fontSize: 15,
+    color: '#222',
+    marginTop: 8,
+  },
+  logoIcon: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+    marginRight: 12,
+  },
+  gCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#4B2E2B',
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  gText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#4B2E2B',
+    fontFamily: 'serif',
   },
 }); 

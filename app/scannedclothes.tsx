@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Image, TextInput, TouchableOpacity, StyleSheet, Modal, ScrollView, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { uploadImageAsync, saveClothingItem } from '../firebaseHelpers';
-import { auth } from '../firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ScannedClothes() {
   const { imageUri } = useLocalSearchParams();
@@ -39,16 +38,26 @@ export default function ScannedClothes() {
     setLoading(true);
     try {
       if (!imageUri) throw new Error('No image found');
-      if (!auth.currentUser) throw new Error('User not logged in');
-      const imageUrl = await uploadImageAsync(imageUri as string, auth.currentUser.uid);
-      await saveClothingItem({
-        imageUrl,
-        clothName,
-        description,
-        wardrobe,
-        categories,
-        occasions,
+      const token = await AsyncStorage.getItem('token');
+      const response = await fetch('http://192.168.1.6:3000/api/wardrobe/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          imageUrl: imageUri,
+          clothName,
+          description,
+          wardrobe,
+          categories,
+          occasions,
+        }),
       });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save item');
+      }
       setLoading(false);
       Alert.alert('Success', 'Clothing item saved!');
       router.back();
