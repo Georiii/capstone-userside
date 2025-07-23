@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const WardrobeItem = require('../models/WardrobeItem');
 const User = require('../models/User');
+const MarketplaceItem = require('../models/MarketplaceItem');
 
 const router = express.Router();
 const JWT_SECRET = 'your_jwt_secret'; // Replace with process.env.JWT_SECRET in production
@@ -61,6 +62,40 @@ router.delete('/:id', auth, async (req, res) => {
     if (!item) return res.status(404).json({ message: 'Item not found' });
     // Optionally: delete image from storage if needed
     res.json({ message: 'Item deleted' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/marketplace - add a new marketplace item
+router.post('/marketplace', auth, async (req, res) => {
+  try {
+    const { imageUrl, name, description, price } = req.body;
+    if (!imageUrl || !name || !price) return res.status(400).json({ message: 'Missing required fields' });
+    const user = req.user; // from auth middleware
+    const item = new MarketplaceItem({
+      imageUrl,
+      name,
+      description,
+      price,
+      userId: req.userId,
+      userName: user?.name || '',
+      userEmail: user?.email || '',
+    });
+    await item.save();
+    res.status(201).json({ message: 'Marketplace item posted', item });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/marketplace - list all marketplace items (with optional search)
+router.get('/marketplace', async (req, res) => {
+  try {
+    const search = req.query.search || '';
+    const query = search ? { name: { $regex: search, $options: 'i' } } : {};
+    const items = await MarketplaceItem.find(query).sort({ createdAt: -1 });
+    res.json({ items });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }

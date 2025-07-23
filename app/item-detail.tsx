@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -9,6 +9,11 @@ export default function ItemDetail() {
   const { imageUrl, clothName, description, occasion, category, itemId } = params;
   const imageSrc = Array.isArray(imageUrl) ? imageUrl[0] : imageUrl;
   const [showConfirm, setShowConfirm] = React.useState(false);
+  const [showMarketModal, setShowMarketModal] = React.useState(false);
+  const [marketName, setMarketName] = React.useState(typeof clothName === 'string' ? clothName : (Array.isArray(clothName) ? clothName[0] : ''));
+  const [marketDesc, setMarketDesc] = React.useState(typeof description === 'string' ? description : (Array.isArray(description) ? description[0] : ''));
+  const [marketPrice, setMarketPrice] = React.useState('');
+  const [posting, setPosting] = React.useState(false);
 
   const handleDelete = async () => {
     setShowConfirm(false);
@@ -27,6 +32,36 @@ export default function ItemDetail() {
     } catch (err) {
       alert('Failed to delete item.');
     }
+  };
+
+  const handlePostToMarket = async () => {
+    setPosting(true);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const response = await fetch('http://192.168.1.6:3000/api/wardrobe/marketplace', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          imageUrl: imageSrc,
+          name: marketName,
+          description: marketDesc,
+          price: parseFloat(marketPrice),
+        }),
+      });
+      if (response.ok) {
+        setShowMarketModal(false);
+        setMarketPrice('');
+        alert('Posted to marketplace!');
+      } else {
+        alert('Failed to post.');
+      }
+    } catch (err) {
+      alert('Failed to post.');
+    }
+    setPosting(false);
   };
 
   return (
@@ -56,7 +91,7 @@ export default function ItemDetail() {
       </View>
 
       {/* Post to Marketplace Button */}
-      <TouchableOpacity style={styles.marketButton}>
+      <TouchableOpacity style={styles.marketButton} onPress={() => setShowMarketModal(true)}>
         <Text style={styles.marketButtonText}>Post to Marketplace</Text>
       </TouchableOpacity>
 
@@ -81,6 +116,50 @@ export default function ItemDetail() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Marketplace Modal */}
+      <Modal
+        visible={showMarketModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMarketModal(false)}
+      >
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.marketModalContent}>
+            <TouchableOpacity style={{ alignSelf: 'flex-end' }} onPress={() => setShowMarketModal(false)}>
+              <Ionicons name="close" size={28} color="#222" />
+            </TouchableOpacity>
+            <Text style={styles.marketModalTitle}>Marketplace details</Text>
+            <TextInput
+              style={styles.marketInput}
+              placeholder="name"
+              value={typeof marketName === 'string' ? marketName : (Array.isArray(marketName) ? marketName[0] : '')}
+              onChangeText={setMarketName}
+              placeholderTextColor="#b8b0a8"
+            />
+            <TextInput
+              style={styles.marketTextarea}
+              placeholder="description"
+              value={typeof marketDesc === 'string' ? marketDesc : (Array.isArray(marketDesc) ? marketDesc[0] : '')}
+              onChangeText={setMarketDesc}
+              placeholderTextColor="#b8b0a8"
+              multiline
+              numberOfLines={4}
+            />
+            <TextInput
+              style={styles.marketInput}
+              placeholder="Price"
+              value={typeof marketPrice === 'string' ? marketPrice : (Array.isArray(marketPrice) ? marketPrice[0] : '')}
+              onChangeText={setMarketPrice}
+              placeholderTextColor="#b8b0a8"
+              keyboardType="numeric"
+            />
+            <TouchableOpacity style={styles.marketPostButton} onPress={handlePostToMarket} disabled={posting}>
+              <Text style={styles.marketPostButtonText}>Post</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -168,6 +247,57 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  marketModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 24,
+    width: 320,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  marketModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#222',
+    marginBottom: 12,
+  },
+  marketInput: {
+    width: '100%',
+    backgroundColor: '#ece5df',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  marketTextarea: {
+    width: '100%',
+    backgroundColor: '#ece5df',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    marginBottom: 12,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  marketPostButton: {
+    backgroundColor: '#FFE0B2',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 22,
+    alignSelf: 'flex-end',
+    marginTop: 8,
+  },
+  marketPostButtonText: {
+    color: '#222',
     fontWeight: 'bold',
     fontSize: 16,
   },

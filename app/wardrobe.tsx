@@ -96,9 +96,9 @@ export default function Wardrobe() {
           <Ionicons name="camera" size={24} color="#666" />
           <Text style={styles.navText}>Scan</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="cart" size={24} color="#666" />
-          <Text style={styles.navText}>Market</Text>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/marketplace')}>
+          <Ionicons name="cart" size={24} color="#333" />
+          <Text style={[styles.navText, styles.activeText]}>Market</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="person" size={24} color="#666" />
