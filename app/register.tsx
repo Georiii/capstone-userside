@@ -33,7 +33,7 @@ export default function Register() {
     setLoading(true);
     try {
       // Use your backend registration endpoint
-      const response = await fetch('http://192.168.1.6:3000/api/auth/register', {
+      const response = await fetch('http://192.168.1.7:3000/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

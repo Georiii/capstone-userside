@@ -30,14 +30,19 @@ export default function AccessoriesCategory() {
       setLoading(true);
       try {
         const token = await AsyncStorage.getItem('token');
-        const response = await fetch('http://192.168.1.6:3000/api/wardrobe/', {
+        const response = await fetch('http://192.168.1.7:3000/api/wardrobe/', {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         });
         const data = await response.json();
         if (response.ok) {
-          setItems(data.items.filter((item: any) => (item.categories || []).includes(categoryType)));
+          // Filter items based on the selected category type
+          const filteredItems = data.items.filter((item: any) => {
+            // Check if the item's categories array includes the current category type
+            return (item.categories || []).includes(categoryType);
+          });
+          setItems(filteredItems);
         } else {
           setItems([]);
         }
@@ -85,7 +90,7 @@ export default function AccessoriesCategory() {
             <Ionicons name="camera" size={24} color="#666" />
             <Text style={styles.navText}>Scan</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem}>
+          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/marketplace')}>
             <Ionicons name="cart" size={24} color="#666" />
             <Text style={styles.navText}>Market</Text>
           </TouchableOpacity>

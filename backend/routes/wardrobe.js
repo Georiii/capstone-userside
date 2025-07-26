@@ -72,20 +72,24 @@ router.post('/marketplace', auth, async (req, res) => {
   try {
     const { imageUrl, name, description, price } = req.body;
     if (!imageUrl || !name || !price) return res.status(400).json({ message: 'Missing required fields' });
-    const user = req.user; // from auth middleware
+    
+    // Get user information from database
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
     const item = new MarketplaceItem({
       imageUrl,
       name,
       description,
       price,
       userId: req.userId,
-      userName: user?.name || '',
-      userEmail: user?.email || '',
+      userName: user.name || '',
+      userEmail: user.email || '',
     });
     await item.save();
     res.status(201).json({ message: 'Marketplace item posted', item });
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 

@@ -15,7 +15,7 @@ export default function Marketplace() {
   const fetchItems = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://192.168.1.6:3000/api/wardrobe/marketplace?search=${encodeURIComponent(search)}`);
+      const response = await fetch(`http://192.168.1.7:3000/api/wardrobe/marketplace?search=${encodeURIComponent(search)}`);
       const data = await response.json();
       setItems(data.items || []);
     } catch (err) {

@@ -19,7 +19,7 @@ export default function ItemDetail() {
     setShowConfirm(false);
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await fetch(`http://192.168.1.6:3000/api/wardrobe/${itemId}`, {
+      const response = await fetch(`http://192.168.1.7:3000/api/wardrobe/${itemId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -38,7 +38,7 @@ export default function ItemDetail() {
     setPosting(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await fetch('http://192.168.1.6:3000/api/wardrobe/marketplace', {
+      const response = await fetch('http://192.168.1.7:3000/api/wardrobe/marketplace', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -51,15 +51,17 @@ export default function ItemDetail() {
           price: parseFloat(marketPrice),
         }),
       });
+      
       if (response.ok) {
         setShowMarketModal(false);
         setMarketPrice('');
         alert('Posted to marketplace!');
       } else {
-        alert('Failed to post.');
+        const errorData = await response.json();
+        alert('Failed to post: ' + (errorData.message || 'Unknown error'));
       }
-    } catch (err) {
-      alert('Failed to post.');
+    } catch (err: any) {
+      alert('Network error: ' + (err.message || 'Failed to post'));
     }
     setPosting(false);
   };
