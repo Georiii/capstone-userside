@@ -33,7 +33,7 @@ export default function Login() {
       return;
     }
     try {
-      const response = await fetch('http://192.168.1.7:3000/api/auth/login', {
+      const response = await fetch('http://192.168.1.12:3000/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -44,6 +44,7 @@ export default function Login() {
       if (response.ok) {
         Alert.alert('Login successful!');
         await AsyncStorage.setItem('token', data.token);
+        await AsyncStorage.setItem('user', JSON.stringify({ name: data.user.name, email: data.user.email }));
         router.push('/wardrobe');
       } else {
         Alert.alert(data.message || 'Login failed.');

@@ -15,7 +15,7 @@ export default function Marketplace() {
   const fetchItems = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://192.168.1.7:3000/api/wardrobe/marketplace?search=${encodeURIComponent(search)}`);
+      const response = await fetch(`http://192.168.1.12:3000/api/wardrobe/marketplace?search=${encodeURIComponent(search)}`);
       const data = await response.json();
       setItems(data.items || []);
     } catch (err) {
@@ -93,7 +93,7 @@ export default function Marketplace() {
           <Ionicons name="cart" size={24} color="#333" />
           <Text style={[styles.navText, styles.activeText]}>Market</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/profile')}>
           <Ionicons name="person" size={24} color="#666" />
           <Text style={styles.navText}>Profile</Text>
         </TouchableOpacity>

@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Remove Firebase imports and usage. Refactor registration to use your backend API.
 
@@ -33,7 +34,7 @@ export default function Register() {
     setLoading(true);
     try {
       // Use your backend registration endpoint
-      const response = await fetch('http://192.168.1.7:3000/api/auth/register', {
+      const response = await fetch('http://192.168.1.12:3000/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -48,6 +49,7 @@ export default function Register() {
 
       const data = await response.json();
       Alert.alert('Account created successfully!');
+      await AsyncStorage.setItem('user', JSON.stringify({ name, email }));
       router.push({ pathname: '/login', params: { fromRegister: 'true' } });
     } catch (error: any) {
       setLoading(false);

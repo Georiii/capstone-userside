@@ -124,7 +124,7 @@ export default function ScannedClothes() {
     try {
       if (!imageUri) throw new Error('No image found');
       const token = await AsyncStorage.getItem('token');
-      const response = await fetch('http://192.168.1.7:3000/api/wardrobe/marketplace', {
+      const response = await fetch('http://192.168.1.12:3000/api/wardrobe/marketplace', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -177,7 +177,7 @@ export default function ScannedClothes() {
     try {
       if (!imageUri) throw new Error('No image found');
       const token = await AsyncStorage.getItem('token');
-      const response = await fetch('http://192.168.1.7:3000/api/wardrobe/add', {
+      const response = await fetch('http://192.168.1.12:3000/api/wardrobe/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

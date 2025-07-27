@@ -100,7 +100,7 @@ export default function Wardrobe() {
           <Ionicons name="cart" size={24} color="#333" />
           <Text style={[styles.navText, styles.activeText]}>Market</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/profile')}>
           <Ionicons name="person" size={24} color="#666" />
           <Text style={styles.navText}>Profile</Text>
         </TouchableOpacity>

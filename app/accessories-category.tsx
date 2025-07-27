@@ -30,7 +30,7 @@ export default function AccessoriesCategory() {
       setLoading(true);
       try {
         const token = await AsyncStorage.getItem('token');
-        const response = await fetch('http://192.168.1.7:3000/api/wardrobe/', {
+        const response = await fetch('http://192.168.1.12:3000/api/wardrobe/', {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -94,7 +94,7 @@ export default function AccessoriesCategory() {
             <Ionicons name="cart" size={24} color="#666" />
             <Text style={styles.navText}>Market</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem}>
+          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/profile')}>
             <Ionicons name="person" size={24} color="#666" />
             <Text style={styles.navText}>Profile</Text>
           </TouchableOpacity>
