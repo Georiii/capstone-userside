@@ -1,27 +1,68 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, TextInput, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+interface MarketplaceItem {
+  _id: string;
+  imageUrl: string;
+  name: string;
+  description: string;
+  price: number;
+  userName: string;
+  userEmail: string;
+  createdAt: string;
+}
 
 export default function Marketplace() {
-  const [items, setItems] = useState<any[]>([]);
-  const [search, setSearch] = useState('');
+  const router = useRouter();
+  const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredItems, setFilteredItems] = useState<MarketplaceItem[]>([]);
 
   useEffect(() => {
-    fetchItems();
-  }, [search]);
+    fetchMarketplaceItems();
+  }, [searchQuery]);
 
-  const fetchItems = async () => {
+  const fetchMarketplaceItems = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://192.168.1.12:3000/api/wardrobe/marketplace?search=${encodeURIComponent(search)}`);
-      const data = await response.json();
+      const response = await fetch(`http://10.163.13.238:3000/api/wardrobe/marketplace?search=${encodeURIComponent(searchQuery)}`);
+      
+      if (!response.ok) {
+        let errorMessage = 'Failed to fetch marketplace items.';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          const textResponse = await response.text();
+          console.error('Non-JSON response:', textResponse);
+          errorMessage = `Server error: ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        throw new Error('Invalid server response. Please try again.');
+      }
+      
       setItems(data.items || []);
-    } catch (err) {
-      setItems([]);
+      setFilteredItems(data.items || []);
+      setLoading(false);
+    } catch (error: any) {
+      setLoading(false);
+      if (error.message.includes('Network request failed')) {
+        Alert.alert('Connection Error', 'Unable to connect to server. Please check your internet connection.');
+      } else {
+        Alert.alert('Error', error.message || 'Failed to fetch marketplace items');
+      }
     }
-    setLoading(false);
   };
 
   return (
@@ -37,8 +78,8 @@ export default function Marketplace() {
         <TextInput
           style={styles.searchInput}
           placeholder="search cloth"
-          value={search}
-          onChangeText={setSearch}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
           placeholderTextColor="#b8b0a8"
         />
       </View>

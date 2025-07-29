@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, Image, TextInput, TouchableOpacity, StyleSheet, Modal, ScrollView, StatusBar, ActivityIndicator, Alert } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Alert, TextInput, ScrollView, Modal } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -9,19 +9,17 @@ export default function ScannedClothes() {
   const router = useRouter();
   const [clothName, setClothName] = useState('');
   const [description, setDescription] = useState('');
-  const [wardrobeModal, setWardrobeModal] = useState(false);
-  const [subcategoryModal, setSubcategoryModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedSubcategory, setSelectedSubcategory] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
+  const [selectedSubcategories, setSelectedSubcategories] = useState<{ name: string, type: string }[]>([]);
   const [occasions, setOccasions] = useState<string[]>([]);
-  const [occasionModal, setOccasionModal] = useState(false);
-  const [marketplaceModal, setMarketplaceModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
+  const [showOccasionModal, setShowOccasionModal] = useState(false);
+  const [showMarketplaceModal, setMarketplaceModal] = useState(false);
   const [marketplaceName, setMarketplaceName] = useState('');
   const [marketplaceDescription, setMarketplaceDescription] = useState('');
   const [marketplacePrice, setMarketplacePrice] = useState('');
-  const [loading, setLoading] = useState(false);
 
   // Category and subcategory mapping
   const categoryData = {
@@ -60,7 +58,7 @@ export default function ScannedClothes() {
   const occasionOptions = ['Birthdays', 'Weddings', 'Work', 'Casual', 'Party', 'Sports'];
 
   const handleAddToWardrobe = (): void => {
-    setWardrobeModal(true);
+    setShowCategoryModal(true);
   };
 
   const handlePostToMarketplace = (): void => {
@@ -69,54 +67,36 @@ export default function ScannedClothes() {
 
   const handleCategorySelect = (category: string): void => {
     setSelectedCategory(category);
-    setWardrobeModal(false);
-    setSubcategoryModal(true);
+    setSelectedSubcategories([]);
+    setShowSubcategoryModal(true);
   };
 
   const handleSubcategorySelect = (subcategory: { name: string, type: string }): void => {
-    // Allow multiple selections
-    setSelectedSubcategories(prev => {
-      if (prev.includes(subcategory.type)) {
-        return prev.filter(s => s !== subcategory.type);
-      } else {
-        return [...prev, subcategory.type];
-      }
-    });
+    if (!selectedSubcategories.some(s => s.type === subcategory.type)) {
+      setSelectedSubcategories([...selectedSubcategories, subcategory]);
+    }
   };
 
   const handleSubcategoryDone = (): void => {
-    if (selectedSubcategories.length === 0) {
-      Alert.alert('Error', 'Please select at least one subcategory');
-      return;
-    }
-    setSubcategoryModal(false);
-    setOccasionModal(true);
+    setShowSubcategoryModal(false);
+    setShowOccasionModal(true);
   };
 
   const handleOccasionSelect = (occasion: string): void => {
-    setOccasions(prev => {
-      if (prev.includes(occasion)) {
-        return prev.filter(o => o !== occasion);
-      } else {
-        return [...prev, occasion];
-      }
-    });
+    if (occasions.includes(occasion)) {
+      setOccasions(occasions.filter(o => o !== occasion));
+    } else {
+      setOccasions([...occasions, occasion]);
+    }
   };
 
   const handleOccasionDone = (): void => {
-    setOccasionModal(false);
-    // Show save button after all selections are made
+    setShowOccasionModal(false);
   };
 
   const handleMarketplaceSubmit = async (): Promise<void> => {
-    if (!marketplaceName.trim() || !marketplacePrice.trim()) {
-      Alert.alert('Error', 'Please enter name and price');
-      return;
-    }
-
-    const price = parseFloat(marketplacePrice);
-    if (isNaN(price) || price <= 0) {
-      Alert.alert('Error', 'Please enter a valid price');
+    if (!marketplaceName.trim() || !marketplaceDescription.trim() || !marketplacePrice.trim()) {
+      Alert.alert('Error', 'Please fill in all marketplace fields');
       return;
     }
 
@@ -124,7 +104,8 @@ export default function ScannedClothes() {
     try {
       if (!imageUri) throw new Error('No image found');
       const token = await AsyncStorage.getItem('token');
-      const response = await fetch('http://192.168.1.12:3000/api/wardrobe/marketplace', {
+      
+      const response = await fetch('http://10.163.13.238:3000/api/wardrobe/marketplace', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -134,31 +115,46 @@ export default function ScannedClothes() {
           imageUrl: imageUri,
           name: marketplaceName.trim(),
           description: marketplaceDescription.trim(),
-          price: price,
+          price: parseFloat(marketplacePrice),
         }),
       });
-      
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to post to marketplace');
+        let errorMessage = 'Failed to post to marketplace.';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          const textResponse = await response.text();
+          console.error('Non-JSON response:', textResponse);
+          errorMessage = `Server error: ${response.status}`;
+        }
+        throw new Error(errorMessage);
       }
-      
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        throw new Error('Invalid server response. Please try again.');
+      }
+
       setLoading(false);
+      setMarketplaceModal(false);
       Alert.alert('Success', 'Item posted to marketplace successfully!', [
         {
           text: 'OK',
-          onPress: () => {
-            setMarketplaceModal(false);
-            setMarketplaceName('');
-            setMarketplaceDescription('');
-            setMarketplacePrice('');
-            router.push('/marketplace');
-          }
+          onPress: () => router.push('/marketplace')
         }
       ]);
     } catch (error: any) {
       setLoading(false);
-      Alert.alert('Error', error.message || 'Failed to post to marketplace');
+      if (error.message.includes('Network request failed')) {
+        Alert.alert('Connection Error', 'Unable to connect to server. Please check your internet connection.');
+      } else {
+        Alert.alert('Error', error.message || 'Failed to post to marketplace');
+      }
     }
   };
 
@@ -177,7 +173,8 @@ export default function ScannedClothes() {
     try {
       if (!imageUri) throw new Error('No image found');
       const token = await AsyncStorage.getItem('token');
-      const response = await fetch('http://192.168.1.12:3000/api/wardrobe/add', {
+      
+      const response = await fetch('http://10.163.13.238:3000/api/wardrobe/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,15 +184,33 @@ export default function ScannedClothes() {
           imageUrl: imageUri,
           clothName: clothName.trim(),
           description: description.trim(),
-          categories: selectedSubcategories, // Save the subcategory types
+          categories: selectedSubcategories.map(s => s.type), // Save the subcategory types
           occasions,
           category: selectedCategory, // Save the main category
         }),
       });
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save item');
+        let errorMessage = 'Failed to save item.';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          const textResponse = await response.text();
+          console.error('Non-JSON response:', textResponse);
+          errorMessage = `Server error: ${response.status}`;
+        }
+        throw new Error(errorMessage);
       }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        throw new Error('Invalid server response. Please try again.');
+      }
+      
       setLoading(false);
       Alert.alert('Success', 'Clothing item saved successfully!', [
         {
@@ -205,13 +220,60 @@ export default function ScannedClothes() {
       ]);
     } catch (error: any) {
       setLoading(false);
-      Alert.alert('Error', error.message || 'Failed to save item');
+      if (error.message.includes('Network request failed')) {
+        Alert.alert('Connection Error', 'Unable to connect to server. Please check your internet connection.');
+      } else {
+        Alert.alert('Error', error.message || 'Failed to save item');
+      }
     }
   };
 
+  const fetchMarketplaceItems = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://10.163.13.238:3000/api/wardrobe/marketplace');
+      
+      if (!response.ok) {
+        let errorMessage = 'Failed to fetch marketplace items.';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          const textResponse = await response.text();
+          console.error('Non-JSON response:', textResponse);
+          errorMessage = `Server error: ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        throw new Error('Invalid server response. Please try again.');
+      }
+      
+      // Assuming data is an array of items, you might want to set state here
+      // For now, we'll just log it or handle it if needed.
+      console.log('Marketplace Items:', data);
+      setLoading(false);
+    } catch (error: any) {
+      setLoading(false);
+      if (error.message.includes('Network request failed')) {
+        Alert.alert('Connection Error', 'Unable to connect to server. Please check your internet connection.');
+      } else {
+        Alert.alert('Error', error.message || 'Failed to fetch marketplace items');
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchMarketplaceItems();
+  }, []);
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5E6D3" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -226,7 +288,7 @@ export default function ScannedClothes() {
       </View>
       {loading && (
         <View style={{ position: 'absolute', top: '50%', left: 0, right: 0, alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          {/* <ActivityIndicator size="large" color="#007AFF" /> */}
         </View>
       )}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -269,7 +331,7 @@ export default function ScannedClothes() {
             <View style={styles.selectedCategoryContainer}>
               <Text style={styles.selectedCategoryText}>
                 Selected: {selectedCategory} → {selectedSubcategories.map(sub => 
-                  categoryData[selectedCategory as keyof typeof categoryData]?.find(s => s.type === sub)?.name
+                  categoryData[selectedCategory as keyof typeof categoryData]?.find(s => s.type === sub.type)?.name
                 ).join(', ')}
               </Text>
               {occasions.length > 0 && (
@@ -292,12 +354,12 @@ export default function ScannedClothes() {
       </ScrollView>
       
       {/* Category Selection Modal */}
-      <Modal visible={wardrobeModal} transparent animationType="slide">
+      <Modal visible={showCategoryModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Category</Text>
-              <TouchableOpacity onPress={() => setWardrobeModal(false)}>
+              <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
@@ -318,12 +380,12 @@ export default function ScannedClothes() {
       </Modal>
 
       {/* Subcategory Selection Modal */}
-      <Modal visible={subcategoryModal} transparent animationType="slide">
+      <Modal visible={showSubcategoryModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{selectedCategory} - Select Types</Text>
-              <TouchableOpacity onPress={() => setSubcategoryModal(false)}>
+              <TouchableOpacity onPress={() => setShowSubcategoryModal(false)}>
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
@@ -333,17 +395,17 @@ export default function ScannedClothes() {
                   key={subcategory.type}
                   style={[
                     styles.optionItem,
-                    selectedSubcategories.includes(subcategory.type) && styles.selectedOption
+                    selectedSubcategories.some(s => s.type === subcategory.type) && styles.selectedOption
                   ]}
                   onPress={() => handleSubcategorySelect(subcategory)}
                 >
                   <Text style={[
                     styles.optionText,
-                    selectedSubcategories.includes(subcategory.type) && styles.selectedOptionText
+                    selectedSubcategories.some(s => s.type === subcategory.type) && styles.selectedOptionText
                   ]}>
                     {subcategory.name}
                   </Text>
-                  {selectedSubcategories.includes(subcategory.type) && (
+                  {selectedSubcategories.some(s => s.type === subcategory.type) && (
                     <Ionicons name="checkmark" size={20} color="#007AFF" />
                   )}
                 </TouchableOpacity>
@@ -357,12 +419,12 @@ export default function ScannedClothes() {
       </Modal>
 
       {/* Occasion Selection Modal */}
-      <Modal visible={occasionModal} transparent animationType="slide">
+      <Modal visible={showOccasionModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Occasions</Text>
-              <TouchableOpacity onPress={() => setOccasionModal(false)}>
+              <TouchableOpacity onPress={() => setShowOccasionModal(false)}>
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
@@ -396,7 +458,7 @@ export default function ScannedClothes() {
       </Modal>
 
       {/* Marketplace Modal */}
-      <Modal visible={marketplaceModal} transparent animationType="slide">
+      <Modal visible={showMarketplaceModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>

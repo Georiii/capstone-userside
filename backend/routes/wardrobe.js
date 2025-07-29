@@ -5,7 +5,7 @@ const User = require('../models/User');
 const MarketplaceItem = require('../models/MarketplaceItem');
 
 const router = express.Router();
-const JWT_SECRET = 'your_jwt_secret'; // Replace with process.env.JWT_SECRET in production
+const JWT_SECRET = 'your_jwt_secret'; // Simple secret for development
 
 // Auth middleware
 function auth(req, res, next) {

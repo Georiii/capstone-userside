@@ -32,25 +32,58 @@ export default function Login() {
       Alert.alert('Email must be a valid Gmail, Yahoo, or Outlook address.');
       return;
     }
+    
+    console.log('Attempting login with:', { email, password: '***' });
+    console.log('API endpoint: http://10.163.13.238:3000/api/auth/login');
+    
     try {
-      const response = await fetch('http://192.168.1.12:3000/api/auth/login', {
+      const response = await fetch('http://10.163.13.238:3000/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
       });
-      const data = await response.json();
-      if (response.ok) {
-        Alert.alert('Login successful!');
-        await AsyncStorage.setItem('token', data.token);
-        await AsyncStorage.setItem('user', JSON.stringify({ name: data.user.name, email: data.user.email }));
-        router.push('/wardrobe');
-      } else {
-        Alert.alert(data.message || 'Login failed.');
+
+      if (!response.ok) {
+        let errorMessage = 'Login failed.';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          const textResponse = await response.text();
+          console.error('Non-JSON response:', textResponse);
+          errorMessage = `Server error: ${response.status}`;
+        }
+        throw new Error(errorMessage);
       }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        throw new Error('Invalid server response. Please try again.');
+      }
+      
+      console.log('Login successful, data:', data);
+      Alert.alert('Login successful!');
+      await AsyncStorage.setItem('token', data.token);
+      await AsyncStorage.setItem('user', JSON.stringify({ 
+        _id: data.user.id,
+        name: data.user.name, 
+        email: data.user.email 
+      }));
+      router.push('/wardrobe');
     } catch (error: any) {
-      Alert.alert(error.message || 'Login failed.');
+      console.error('Login error details:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      if (error.message.includes('Network request failed')) {
+        Alert.alert('Connection Error', 'Unable to connect to server. Please check your internet connection.');
+      } else {
+        Alert.alert('Login Failed', error.message || 'An unexpected error occurred.');
+      }
     }
   };
 
@@ -82,7 +115,10 @@ export default function Login() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+      <TouchableOpacity 
+        style={styles.loginButton} 
+        onPress={handleLogin}
+      >
         <Text style={styles.loginButtonText}>Login</Text>
       </TouchableOpacity>
 
@@ -91,7 +127,7 @@ export default function Login() {
       </TouchableOpacity>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Don't have an account? </Text>
+        <Text style={styles.footerText}>Don&apos;t have an account? </Text>
         <TouchableOpacity onPress={() => router.push('/register')}>
           <Text style={styles.signUpText}>Sign up.</Text>
         </TouchableOpacity>

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams } from 'expo-router';
 
 export default function Category() {
+  const router = useRouter();
   const params = useLocalSearchParams();
   const categoryType = params.type || 'Tops';
   const [items, setItems] = useState<any[]>([]);
@@ -24,40 +24,62 @@ export default function Category() {
   };
 
   useEffect(() => {
-    const fetchWardrobe = async () => {
-      setLoading(true);
-      try {
-        const token = await AsyncStorage.getItem('token');
-        const response = await fetch('http://192.168.1.12:3000/api/wardrobe/', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        const data = await response.json();
-        if (response.ok) {
-          // Filter items based on the selected category type
-          const filteredItems = data.items.filter((item: any) => {
-            // Check if the item's categories array includes the current category type
-            return (item.categories || []).includes(categoryType);
-          });
-          setItems(filteredItems);
-        } else {
-          setItems([]);
-        }
-      } catch (err) {
-        setItems([]);
-      }
-      setLoading(false);
-    };
     fetchWardrobe();
   }, [categoryType]);
+
+  const fetchWardrobe = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const response = await fetch('http://10.163.13.238:3000/api/wardrobe/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to fetch wardrobe items.';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          const textResponse = await response.text();
+          console.error('Non-JSON response:', textResponse);
+          errorMessage = `Server error: ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        throw new Error('Invalid server response. Please try again.');
+      }
+
+      const filteredItems = data.items.filter((item: any) => {
+        // Check if the item's categories array includes the current category type
+        return (item.categories || []).includes(categoryType);
+      });
+      setItems(filteredItems);
+    } catch (error: any) {
+      console.error('Error fetching wardrobe:', error);
+      if (error.message.includes('Network request failed')) {
+        Alert.alert('Connection Error', 'Unable to connect to server. Please check your internet connection.');
+      } else {
+        Alert.alert('Error', error.message || 'Failed to fetch wardrobe items');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddMore = () => {
     router.push('/scan');
   };
 
   // If on the main category page (not filtered), show subcategories
-  if (!params.type || params.type === 'Tops') {
+  if (!categoryType || categoryType === 'Tops') {
     return (
       <View style={styles.container}>
         {/* Header */}

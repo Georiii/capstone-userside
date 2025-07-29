@@ -4,11 +4,8 @@ import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } fro
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Remove Firebase imports and usage. Refactor registration to use your backend API.
-
 export default function Register() {
   const router = useRouter();
-
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -33,8 +30,7 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      // Use your backend registration endpoint
-      const response = await fetch('http://192.168.1.12:3000/api/auth/register', {
+      const response = await fetch('http://10.163.13.238:3000/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,17 +39,41 @@ export default function Register() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Registration failed');
+        let errorMessage = 'Registration failed.';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          const textResponse = await response.text();
+          console.error('Non-JSON response:', textResponse);
+          errorMessage = `Server error: ${response.status}`;
+        }
+        throw new Error(errorMessage);
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        throw new Error('Invalid server response. Please try again.');
+      }
+      
       Alert.alert('Account created successfully!');
-      await AsyncStorage.setItem('user', JSON.stringify({ name, email }));
+      await AsyncStorage.setItem('user', JSON.stringify({ 
+        _id: data.user?._id,
+        name, 
+        email 
+      }));
       router.push({ pathname: '/login', params: { fromRegister: 'true' } });
     } catch (error: any) {
       setLoading(false);
-      Alert.alert('Registration error: ' + (error.message || 'Unknown error'));
+      console.error('Registration error:', error);
+      if (error.message.includes('Network request failed')) {
+        Alert.alert('Connection Error', 'Unable to connect to server. Please check your internet connection.');
+      } else {
+        Alert.alert('Registration error: ' + (error.message || 'Unknown error'));
+      }
     }
   };
 

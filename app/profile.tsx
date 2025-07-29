@@ -21,7 +21,7 @@ export default function Profile() {
           setName(user.name || 'Name');
           setEmail(user.email || 'Email');
         }
-      } catch (e) {}
+      } catch (error) {}
     };
     fetchUser();
   }, []);
@@ -49,7 +49,7 @@ export default function Profile() {
       </View>
       {/* Quick Actions */}
       <View style={styles.quickActions}>
-        <TouchableOpacity style={styles.actionItem} onPress={() => alert('Messages feature coming soon!')}>
+        <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/message-box')}>
           <MaterialCommunityIcons name="message-outline" size={32} color="#4B2E2B" />
           <Text style={styles.actionLabel}>Messages</Text>
         </TouchableOpacity>

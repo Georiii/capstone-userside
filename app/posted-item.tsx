@@ -36,7 +36,15 @@ export default function PostedItem() {
             <Text style={styles.userEmail}>Email</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.messageButton}>
+        <TouchableOpacity style={styles.messageButton} onPress={() => router.push({
+          pathname: '/message-user',
+          params: {
+            sellerId: userName,
+            sellerEmail: userEmail,
+            productName: name,
+            productImage: imageSrc
+          }
+        })}>
           <Text style={styles.messageButtonText}>Message User</Text>
         </TouchableOpacity>
       </View>
