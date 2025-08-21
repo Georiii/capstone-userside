@@ -9,6 +9,10 @@ yarn-error.log*
 dist/
 web-build/
 
+# EAS
+eas.json
+app.json
+
 # Native
 *.orig.*
 *.jks
