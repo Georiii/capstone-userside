@@ -1,3 +1,5 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
 # Dependencies
 node_modules/
 npm-debug.log*
@@ -8,12 +10,14 @@ yarn-error.log*
 .expo/
 dist/
 web-build/
+expo-env.d.ts
 
 # EAS
 eas.json
 app.json
 
 # Native
+.kotlin/
 *.orig.*
 *.jks
 *.p8
@@ -64,7 +68,6 @@ coverage/
 .nyc_output
 
 # Dependency directories
-node_modules/
 jspm_packages/
 
 # Optional npm cache directory
@@ -111,4 +114,6 @@ jspm_packages/
 .dynamodb/
 
 # TernJS port file
-.tern-port 
+.tern-port
+
+app-example
