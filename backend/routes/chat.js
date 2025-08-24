@@ -4,9 +4,9 @@ const mongoose = require('mongoose');
 const ChatMessage = require('../models/Chat');
 const User = require('../models/User');
 const Report = require('../models/Report');
+const { JWT_SECRET } = require('../config/database');
 
 const router = express.Router();
-const JWT_SECRET = 'your_jwt_secret'; // Simple secret for development
 
 // Auth middleware
 function auth(req, res, next) {

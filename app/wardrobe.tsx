@@ -1,11 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ImageBackground, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CABINET_WIDTH = SCREEN_WIDTH * 0.65;
-const CABINET_HEIGHT = CABINET_WIDTH / 0.87; // aspect ratio 0.87 (w/h)
 
 export default function Wardrobe() {
   const categories = [
@@ -43,10 +39,6 @@ export default function Wardrobe() {
 
   const handleCategoryPress = (category: typeof categories[0]) => {
     router.push({ pathname: category.route }); // No type param, show subcategory grid
-  };
-
-  const handleSubcategoryPress = (category: typeof categories[0], subcategory: { name: string, type: string }) => {
-    router.push({ pathname: category.route, params: { type: subcategory.type } });
   };
 
   return (

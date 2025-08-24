@@ -1,31 +1,32 @@
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Alert, TextInput } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_ENDPOINTS } from '../config/api';
 
 // Remove Firebase imports and usage. Refactor login to use your backend API.
 
 export default function Login() {
   const router = useRouter();
-  const params = useLocalSearchParams();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [showPassword, setShowPassword] = React.useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     // Remove Firebase onAuthStateChanged usage.
     setCheckingAuth(false);
-  }, [params]);
+  }, []);
 
   if (checkingAuth) {
     return null; // or a loading spinner if you prefer
   }
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Please fill in all fields.');
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Error', 'Please fill in all fields');
       return;
     }
     if (email.includes('@') && !(/@(gmail|yahoo|outlook)\.com$/.test(email))) {
@@ -33,11 +34,12 @@ export default function Login() {
       return;
     }
     
-    console.log('Attempting login with:', { email, password: '***' });
-    console.log('API endpoint: http://10.163.13.238:3000/api/auth/login');
-    
+    setLoading(true);
     try {
-      const response = await fetch('http://10.163.13.238:3000/api/auth/login', {
+      console.log('Starting login process...');
+      console.log('API endpoint:', API_ENDPOINTS.login);
+      
+      const response = await fetch(API_ENDPOINTS.login, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -50,7 +52,7 @@ export default function Login() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
+        } catch {
           const textResponse = await response.text();
           console.error('Non-JSON response:', textResponse);
           errorMessage = `Server error: ${response.status}`;
@@ -61,8 +63,8 @@ export default function Login() {
       let data;
       try {
         data = await response.json();
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
+      } catch {
+        console.error('JSON parse error');
         throw new Error('Invalid server response. Please try again.');
       }
       
@@ -84,6 +86,8 @@ export default function Login() {
       } else {
         Alert.alert('Login Failed', error.message || 'An unexpected error occurred.');
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -99,6 +103,7 @@ export default function Login() {
         placeholderTextColor="white"
         value={email}
         onChangeText={setEmail}
+        editable={!loading}
       />
 
       <View style={{ width: 270, flexDirection: 'row', alignItems: 'center', marginTop: 15 }}>
@@ -109,6 +114,7 @@ export default function Login() {
           secureTextEntry={!showPassword}
           value={password}
           onChangeText={setPassword}
+          editable={!loading}
         />
         <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={{ position: 'absolute', right: 10 }}>
           <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="gray" />
@@ -118,8 +124,9 @@ export default function Login() {
       <TouchableOpacity 
         style={styles.loginButton} 
         onPress={handleLogin}
+        disabled={loading}
       >
-        <Text style={styles.loginButtonText}>Login</Text>
+        <Text style={styles.loginButtonText}>{loading ? 'Logging In...' : 'Login'}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push('/forgotpass')}>

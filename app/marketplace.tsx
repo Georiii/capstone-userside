@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_ENDPOINTS } from '../config/api';
 
 interface MarketplaceItem {
   _id: string;
@@ -20,23 +20,18 @@ export default function Marketplace() {
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredItems, setFilteredItems] = useState<MarketplaceItem[]>([]);
 
-  useEffect(() => {
-    fetchMarketplaceItems();
-  }, [searchQuery]);
-
-  const fetchMarketplaceItems = async () => {
+  const fetchMarketplaceItems = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://10.163.13.238:3000/api/wardrobe/marketplace?search=${encodeURIComponent(searchQuery)}`);
+      const response = await fetch(API_ENDPOINTS.marketplaceSearch(searchQuery));
       
       if (!response.ok) {
         let errorMessage = 'Failed to fetch marketplace items.';
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
+        } catch {
           const textResponse = await response.text();
           console.error('Non-JSON response:', textResponse);
           errorMessage = `Server error: ${response.status}`;
@@ -47,13 +42,12 @@ export default function Marketplace() {
       let data;
       try {
         data = await response.json();
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
+      } catch {
+        console.error('JSON parse error');
         throw new Error('Invalid server response. Please try again.');
       }
       
       setItems(data.items || []);
-      setFilteredItems(data.items || []);
       setLoading(false);
     } catch (error: any) {
       setLoading(false);
@@ -63,7 +57,11 @@ export default function Marketplace() {
         Alert.alert('Error', error.message || 'Failed to fetch marketplace items');
       }
     }
-  };
+  }, [searchQuery]);
+
+  useEffect(() => {
+    fetchMarketplaceItems();
+  }, [fetchMarketplaceItems]);
 
   return (
     <View style={styles.container}>

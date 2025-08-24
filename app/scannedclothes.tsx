@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Alert, TextInput, ScrollView, Modal } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { API_ENDPOINTS } from '../config/api';
 
 export default function ScannedClothes() {
   const { imageUri } = useLocalSearchParams();
@@ -104,8 +105,9 @@ export default function ScannedClothes() {
     try {
       if (!imageUri) throw new Error('No image found');
       const token = await AsyncStorage.getItem('token');
+      console.log('🔑 Token from AsyncStorage:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
       
-      const response = await fetch('http://10.163.13.238:3000/api/wardrobe/marketplace', {
+      const response = await fetch(API_ENDPOINTS.addMarketplaceItem, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -124,7 +126,7 @@ export default function ScannedClothes() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
+        } catch {
           const textResponse = await response.text();
           console.error('Non-JSON response:', textResponse);
           errorMessage = `Server error: ${response.status}`;
@@ -132,11 +134,10 @@ export default function ScannedClothes() {
         throw new Error(errorMessage);
       }
 
-      let data;
       try {
-        data = await response.json();
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
+        await response.json();
+      } catch {
+        console.error('JSON parse error');
         throw new Error('Invalid server response. Please try again.');
       }
 
@@ -159,13 +160,8 @@ export default function ScannedClothes() {
   };
 
   const handleFinalSubmit = async (): Promise<void> => {
-    if (!selectedCategory || selectedSubcategories.length === 0) {
-      Alert.alert('Error', 'Please select both category and at least one subcategory');
-      return;
-    }
-
     if (!clothName.trim()) {
-      Alert.alert('Error', 'Please enter a cloth name');
+      Alert.alert('Error', 'Please enter a name for the clothing item.');
       return;
     }
 
@@ -173,20 +169,50 @@ export default function ScannedClothes() {
     try {
       if (!imageUri) throw new Error('No image found');
       const token = await AsyncStorage.getItem('token');
+      console.log('🔑 Token from AsyncStorage:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
+      console.log('📡 Making request to:', API_ENDPOINTS.addWardrobeItem);
       
-      const response = await fetch('http://10.163.13.238:3000/api/wardrobe/add', {
+      // TEMPORARILY DISABLED: Cloudinary upload
+      // let cloudinaryImageUrl = imageUri;
+      // try {
+      //   console.log('🔍 Uploading image to Cloudinary...');
+      //   const uploadResponse = await fetch(API_ENDPOINTS.uploadImage, {
+      //     method: 'POST',
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //       'Authorization': `Bearer ${token}`,
+      //     },
+      //     body: JSON.stringify({
+      //       imageUrl: imageUri,
+      //       folder: 'glamora/wardrobe'
+      //     }),
+      //   });
+
+      //   if (uploadResponse.ok) {
+      //     const uploadResult = await response.json();
+      //     cloudinaryImageUrl = uploadResult.imageUrl;
+      //     console.log('✅ Image uploaded to Cloudinary:', cloudinaryImageUrl);
+      //   } else {
+      //     console.log('⚠️ Cloudinary upload failed, using original image');
+      //   }
+      // } catch (uploadError) {
+      //   console.log('⚠️ Cloudinary upload error, using original image:', uploadError);
+      // }
+      
+      // Save to wardrobe with original image URL (temporarily)
+      const response = await fetch(API_ENDPOINTS.addWardrobeItem, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          imageUrl: imageUri,
+          imageUrl: imageUri, // Use original imageUri instead of cloudinaryImageUrl
           clothName: clothName.trim(),
           description: description.trim(),
-          categories: selectedSubcategories.map(s => s.type), // Save the subcategory types
+          categories: selectedSubcategories.map(s => s.type),
           occasions,
-          category: selectedCategory, // Save the main category
+          category: selectedCategory,
         }),
       });
 
@@ -195,7 +221,7 @@ export default function ScannedClothes() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
+        } catch {
           const textResponse = await response.text();
           console.error('Non-JSON response:', textResponse);
           errorMessage = `Server error: ${response.status}`;
@@ -203,11 +229,10 @@ export default function ScannedClothes() {
         throw new Error(errorMessage);
       }
 
-      let data;
       try {
-        data = await response.json();
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
+        await response.json();
+      } catch {
+        console.error('JSON parse error');
         throw new Error('Invalid server response. Please try again.');
       }
       
@@ -231,14 +256,14 @@ export default function ScannedClothes() {
   const fetchMarketplaceItems = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://10.163.13.238:3000/api/wardrobe/marketplace');
+      const response = await fetch(API_ENDPOINTS.getMarketplaceItems);
       
       if (!response.ok) {
         let errorMessage = 'Failed to fetch marketplace items.';
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
+        } catch {
           const textResponse = await response.text();
           console.error('Non-JSON response:', textResponse);
           errorMessage = `Server error: ${response.status}`;
@@ -246,17 +271,13 @@ export default function ScannedClothes() {
         throw new Error(errorMessage);
       }
 
-      let data;
       try {
-        data = await response.json();
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
+        await response.json();
+      } catch {
+        console.error('JSON parse error');
         throw new Error('Invalid server response. Please try again.');
       }
       
-      // Assuming data is an array of items, you might want to set state here
-      // For now, we'll just log it or handle it if needed.
-      console.log('Marketplace Items:', data);
       setLoading(false);
     } catch (error: any) {
       setLoading(false);

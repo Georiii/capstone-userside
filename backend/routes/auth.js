@@ -1,10 +1,10 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../config/database');
 const User = require('../models/User');
 
 const router = express.Router();
-const JWT_SECRET = 'your_jwt_secret'; // Simple secret for development
 
 // Register
 router.post('/register', async (req, res) => {
@@ -75,6 +75,76 @@ router.get('/user/:email', async (req, res) => {
   } catch (err) {
     console.error('Error fetching user:', err);
     res.status(500).json({ message: 'Failed to fetch user.', error: err.message });
+  }
+});
+
+// Update user body measurements and style preferences
+router.put('/profile/measurements', async (req, res) => {
+  try {
+    const { email, bodyMeasurements, stylePreferences } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required.' });
+    }
+    
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    
+    // Update body measurements if provided
+    if (bodyMeasurements) {
+      user.bodyMeasurements = { ...user.bodyMeasurements, ...bodyMeasurements };
+      user.profileSettings.measurementLastUpdated = new Date();
+    }
+    
+    // Update style preferences if provided
+    if (stylePreferences) {
+      user.stylePreferences = { ...user.stylePreferences, ...stylePreferences };
+    }
+    
+    await user.save();
+    
+    res.json({ 
+      message: 'Profile updated successfully.', 
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        bodyMeasurements: user.bodyMeasurements,
+        stylePreferences: user.stylePreferences,
+        profileSettings: user.profileSettings
+      }
+    });
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    res.status(500).json({ message: 'Failed to update profile.', error: err.message });
+  }
+});
+
+// Get user profile with measurements
+router.get('/profile/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const user = await User.findOne({ email }).select('-passwordHash');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    
+    res.json({ 
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        bodyMeasurements: user.bodyMeasurements,
+        stylePreferences: user.stylePreferences,
+        profileSettings: user.profileSettings
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching profile:', err);
+    res.status(500).json({ message: 'Failed to fetch profile.', error: err.message });
   }
 });
 
