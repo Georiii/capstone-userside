@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ScrollView, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_ENDPOINTS } from '../config/api';
 
 export default function ItemDetail() {
@@ -16,6 +16,7 @@ export default function ItemDetail() {
   const occasionStr = Array.isArray(occasion) ? occasion[0] : occasion;
   const categoryStr = Array.isArray(category) ? category[0] : category;
   const [loading, setLoading] = useState(false);
+  const [postSuccess, setPostSuccess] = useState(false);
   const [showMarketModal, setShowMarketModal] = useState(false);
   const [marketName, setMarketName] = useState(clothNameStr || '');
   const [marketDesc, setMarketDesc] = useState(descriptionStr || '');
@@ -129,6 +130,7 @@ export default function ItemDetail() {
         throw new Error('Invalid server response. Please try again.');
       }
 
+      setPostSuccess(true);
       setShowMarketModal(false);
       setMarketPrice('');
       Alert.alert('Success', 'Item posted to marketplace successfully!', [
@@ -195,7 +197,10 @@ export default function ItemDetail() {
         </View>
 
         {/* Post to Marketplace Button */}
-        <TouchableOpacity style={styles.marketButton} onPress={() => setShowMarketModal(true)}>
+        <TouchableOpacity style={styles.marketButton} onPress={() => {
+          setShowMarketModal(true);
+          setPostSuccess(false);
+        }}>
           <Text style={styles.marketButtonText}>Post to Marketplace</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -241,8 +246,17 @@ export default function ItemDetail() {
               keyboardType="numeric"
             />
             
-            <TouchableOpacity style={styles.marketPostButton} onPress={handlePostToMarketplace} disabled={loading}>
-              <Text style={styles.marketPostButtonText}>{loading ? 'Posting...' : 'Post'}</Text>
+            <TouchableOpacity style={styles.marketPostButton} onPress={handlePostToMarketplace} disabled={loading || postSuccess}>
+              {loading ? (
+                <View style={styles.buttonLoadingContainer}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={styles.marketPostButtonText}>Posting...</Text>
+                </View>
+              ) : postSuccess ? (
+                <Text style={styles.marketPostButtonText}>Posted ✓</Text>
+              ) : (
+                <Text style={styles.marketPostButtonText}>Post</Text>
+              )}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -338,9 +352,15 @@ const styles = StyleSheet.create({
     borderColor: '#E67E00',
   },
   marketPostButtonText: {
-    color: '#333',
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  buttonLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   loadingContainer: {
     flex: 1,
