@@ -172,3 +172,6 @@ export const useSocket = () => {
   }
   return context;
 };
+
+// Add default export to fix the routing error
+export default SocketProvider;
