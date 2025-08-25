@@ -78,11 +78,21 @@ export default function ItemDetail() {
 
     console.log('🚀 Starting marketplace post...');
     console.log('🔑 Token:', await AsyncStorage.getItem('token'));
+    
+    // Check if imageSrc is too long (Base64 strings can be very long)
+    if (imageSrc && imageSrc.length > 10000) {
+      console.log('⚠️ Image URL is very long, truncating for logging...');
+      console.log('📝 Image URL length:', imageSrc.length);
+      console.log('📝 Image URL preview:', imageSrc.substring(0, 100) + '...');
+    } else {
+      console.log('📝 Image URL:', imageSrc);
+    }
+    
     console.log('📝 Data being sent:', {
-      imageUrl: imageSrc,
       name: marketName,
       description: marketDesc,
-      price: price
+      price: price,
+      imageUrlLength: imageSrc ? imageSrc.length : 0
     });
     console.log('🌐 API Endpoint:', API_ENDPOINTS.marketplace);
     
@@ -96,6 +106,7 @@ export default function ItemDetail() {
       console.log('📡 Making request to marketplace...');
       console.log('🔗 Full URL:', API_ENDPOINTS.marketplace);
       
+      // Create request body without logging the full image URL
       const requestBody = {
         imageUrl: imageSrc,
         name: marketName.trim(),
@@ -103,7 +114,20 @@ export default function ItemDetail() {
         price: price,
       };
       
-      console.log('📦 Request body:', JSON.stringify(requestBody, null, 2));
+      console.log('📦 Request body (without image):', {
+        name: requestBody.name,
+        description: requestBody.description,
+        price: requestBody.price,
+        imageUrlLength: requestBody.imageUrl ? requestBody.imageUrl.length : 0
+      });
+      
+      // Check if the request body would be too large
+      const requestBodySize = JSON.stringify(requestBody).length;
+      console.log('📏 Request body size:', requestBodySize, 'characters');
+      
+      if (requestBodySize > 1000000) { // 1MB limit
+        console.warn('⚠️ Request body is very large, this might cause issues');
+      }
       
       const response = await fetch(API_ENDPOINTS.marketplace, {
         method: 'POST',
