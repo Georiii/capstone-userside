@@ -114,4 +114,64 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// POST /api/wardrobe/marketplace - add a new marketplace item
+router.post('/marketplace', auth, async (req, res) => {
+  try {
+    console.log('🏪 Adding marketplace item...');
+    console.log('📝 Request body:', req.body);
+    console.log('👤 User ID:', req.userId);
+    
+    const { imageUrl, name, description, price } = req.body;
+    if (!imageUrl || !name || !price) {
+      console.log('❌ Missing required fields');
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    
+    // Get user information from database
+    const user = await User.findById(req.userId);
+    if (!user) {
+      console.log('❌ User not found');
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    console.log('💾 Creating MarketplaceItem...');
+    const item = new MarketplaceItem({
+      imageUrl,
+      name,
+      description,
+      price,
+      userId: req.userId,
+      userName: user.name || '',
+      userEmail: user.email || '',
+    });
+    
+    console.log('💾 Saving to database...');
+    await item.save();
+    console.log('✅ Marketplace item saved successfully:', item._id);
+    
+    res.status(201).json({ message: 'Marketplace item posted', item });
+  } catch (err) {
+    console.error('❌ Error saving marketplace item:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/wardrobe/marketplace - list all marketplace items (with optional search)
+router.get('/marketplace', async (req, res) => {
+  try {
+    console.log('🔍 Fetching marketplace items...');
+    console.log('📝 Search query:', req.query.search);
+    
+    const search = req.query.search || '';
+    const query = search ? { name: { $regex: search, $options: 'i' } } : {};
+    const items = await MarketplaceItem.find(query).sort({ createdAt: -1 });
+    
+    console.log(`📊 Found ${items.length} marketplace items`);
+    res.json({ items });
+  } catch (err) {
+    console.error('❌ Error fetching marketplace items:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
