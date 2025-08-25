@@ -65,17 +65,22 @@ export default function ItemDetail() {
   };
 
   const handlePostToMarketplace = async () => {
+    console.log('🎯 handlePostToMarketplace function called!');
+    
     if (!marketName.trim() || !marketDesc.trim() || !marketPrice.trim()) {
+      console.log('❌ Validation failed - missing fields');
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
     const price = parseFloat(marketPrice);
     if (isNaN(price) || price <= 0) {
+      console.log('❌ Validation failed - invalid price:', marketPrice);
       Alert.alert('Error', 'Please enter a valid price');
       return;
     }
 
+    console.log('✅ Validation passed - proceeding with post');
     console.log('🚀 Starting marketplace post...');
     console.log('🔑 Token:', await AsyncStorage.getItem('token'));
     
