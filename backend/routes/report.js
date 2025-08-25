@@ -2,9 +2,9 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const Report = require('../models/Report');
 const User = require('../models/User');
+const { JWT_SECRET } = require('../config/database');
 
 const router = express.Router();
-const JWT_SECRET = 'your_jwt_secret'; // Simple secret for development
 
 // Auth middleware
 function auth(req, res, next) {

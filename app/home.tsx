@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { useRouter } from 'expo-router';
 
 export default function Home() {
-  const [user, setUser] = useState<any>(null);
-  const router = useRouter();
+  const [user] = useState<any>(null);
 
   useEffect(() => {
     // Remove Firebase authentication state listener

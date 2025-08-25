@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { API_ENDPOINTS } from '../config/api';
 
 export default function BottomsCategory() {
   const router = useRouter();
@@ -25,14 +26,10 @@ export default function BottomsCategory() {
     router.push({ pathname: '/bottoms-category', params: { type: subcategory.type } });
   };
 
-  useEffect(() => {
-    fetchWardrobe();
-  }, [categoryType]);
-
-  const fetchWardrobe = async () => {
+  const fetchWardrobe = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await fetch('http://10.163.13.238:3000/api/wardrobe/', {
+      const response = await fetch(API_ENDPOINTS.wardrobe, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -43,7 +40,7 @@ export default function BottomsCategory() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
+        } catch {
           const textResponse = await response.text();
           console.error('Non-JSON response:', textResponse);
           errorMessage = `Server error: ${response.status}`;
@@ -54,13 +51,19 @@ export default function BottomsCategory() {
       let data;
       try {
         data = await response.json();
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
+      } catch {
+        console.error('JSON parse error');
         throw new Error('Invalid server response. Please try again.');
       }
 
       const filteredItems = data.items.filter((item: any) => {
-        return (item.categories || []).includes(categoryType);
+        // Check both categories array and category field
+        const matchesCategories = (item.categories && item.categories.includes(categoryType));
+        const matchesCategory = (item.category === categoryType);
+        
+        console.log(`🔍 Item "${item.clothName}": categories="${item.categories}", category="${item.category}", matches "${categoryType}": ${matchesCategories || matchesCategory}`);
+        
+        return matchesCategories || matchesCategory;
       });
       setItems(filteredItems);
     } catch (error: any) {
@@ -73,7 +76,11 @@ export default function BottomsCategory() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryType]);
+
+  useEffect(() => {
+    fetchWardrobe();
+  }, [fetchWardrobe]);
 
   const handleAddMore = () => {
     router.push('/scan');

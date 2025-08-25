@@ -1,22 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  Image,
-  Alert,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  TextInput,
-  ScrollView,
-  Modal,
-} from 'react-native';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    Alert,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { API_ENDPOINTS } from '../config/api';
+import { useSocket } from './contexts/SocketContext';
 
 interface Message {
   id: string;
@@ -36,18 +34,13 @@ export default function MessageUser() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedReportReason, setSelectedReportReason] = useState('');
-
-  useEffect(() => {
-    loadCurrentUser();
-    loadMessages();
-  }, []);
-
-  // Reload messages when screen comes into focus
-  useFocusEffect(
-    React.useCallback(() => {
-      loadMessages();
-    }, [])
-  );
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const [otherUserId, setOtherUserId] = useState<string | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const typingTimeoutRef = useRef<any>(null);
+  
+  // Socket.IO context
+  const { socket, isConnected, sendMessage: sendSocketMessage, joinChat, leaveChat, sendTyping } = useSocket();
 
   const loadCurrentUser = async () => {
     try {
@@ -60,7 +53,7 @@ export default function MessageUser() {
     }
   };
 
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('token');
       const userData = await AsyncStorage.getItem('user');
@@ -72,7 +65,8 @@ export default function MessageUser() {
       }
 
       // Find the seller user by email
-      const response = await fetch(`http://10.163.13.238:3000/api/auth/user/${sellerEmail}`, {
+      const sellerEmailStr = Array.isArray(sellerEmail) ? sellerEmail[0] : sellerEmail;
+      const response = await fetch(API_ENDPOINTS.getUser(sellerEmailStr), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -81,9 +75,12 @@ export default function MessageUser() {
       if (response.ok) {
         const sellerData = await response.json();
         const sellerUserId = sellerData.user._id;
+        
+        // Set the other user ID for Socket.IO
+        setOtherUserId(sellerUserId);
 
         // Now get chat messages with the seller
-        const chatResponse = await fetch(`http://10.163.13.238:3000/api/chat/${sellerUserId}`, {
+        const chatResponse = await fetch(API_ENDPOINTS.chatMessages(sellerUserId), {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -103,7 +100,6 @@ export default function MessageUser() {
             timestamp: new Date(msg.timestamp),
             isFromCurrentUser: msg.senderId._id === currentUser.id || msg.senderId === currentUser.id
           }));
-
           setMessages(transformedMessages);
         } else {
           console.log('No messages found, setting default message');
@@ -144,22 +140,127 @@ export default function MessageUser() {
         isFromCurrentUser: false
       }]);
     }
-  };
+  }, [sellerEmail, sellerId]);
+
+  // Socket.IO effects
+  useEffect(() => {
+    if (socket && otherUserId) {
+      console.log('🔌 Setting up Socket.IO listeners for user:', otherUserId);
+      
+      // Join chat room
+      joinChat(otherUserId);
+      
+      // Listen for new messages
+      const handleNewMessage = (data: any) => {
+        console.log('📨 Received real-time message:', data);
+        if (data.fromUserId === otherUserId || data.toUserId === otherUserId) {
+          const newMsg: Message = {
+            id: data._id || Date.now().toString(),
+            text: data.message,
+            senderId: data.fromUserId,
+            senderName: data.senderName || (data.fromUserId === currentUser?.id ? 'You' : sellerId as string),
+            senderAvatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+            timestamp: new Date(data.timestamp),
+            isFromCurrentUser: data.fromUserId === currentUser?.id
+          };
+          
+          setMessages(prev => {
+            // Avoid duplicates
+            const exists = prev.some(msg => msg.id === newMsg.id);
+            if (!exists) {
+              return [...prev, newMsg];
+            }
+            return prev;
+          });
+          
+          // Scroll to bottom
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+        }
+      };
+      
+      // Listen for typing indicators
+      const handleUserTyping = (data: any) => {
+        if (data.userId === otherUserId) {
+          setOtherUserTyping(data.isTyping);
+          
+          // Auto-clear typing indicator after 3 seconds
+          if (data.isTyping) {
+            if (typingTimeoutRef.current) {
+              clearTimeout(typingTimeoutRef.current);
+            }
+            typingTimeoutRef.current = setTimeout(() => {
+              setOtherUserTyping(false);
+            }, 3000);
+          }
+        }
+      };
+      
+      socket.on('new-message', handleNewMessage);
+      socket.on('user-typing', handleUserTyping);
+      
+      return () => {
+        socket.off('new-message', handleNewMessage);
+        socket.off('user-typing', handleUserTyping);
+        leaveChat(otherUserId);
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+      };
+    }
+  }, [socket, otherUserId, currentUser, sellerId, joinChat, leaveChat]);
+
+  useEffect(() => {
+    loadCurrentUser();
+    loadMessages();
+  }, [loadMessages]);
+
+  // Reload messages when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadMessages();
+    }, [loadMessages])
+  );
 
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
 
     console.log('📝 Sending message:', newMessage.trim());
+    const messageText = newMessage.trim();
 
     const message: Message = {
       id: Date.now().toString(),
-      text: newMessage.trim(),
-      senderId: currentUser?.email || 'currentUser',
+      text: messageText,
+      senderId: currentUser?.id || 'currentUser',
       senderName: currentUser?.name || 'You',
       senderAvatar: 'https://randomuser.me/api/portraits/men/32.jpg',
       timestamp: new Date(),
       isFromCurrentUser: true
     };
+
+    // Add message to local state immediately for better UX
+    setMessages(prev => [...prev, message]);
+    setNewMessage('');
+
+    // Stop typing indicator
+    if (otherUserId) {
+      sendTyping(otherUserId, false);
+    }
+
+    // Try Socket.IO first for real-time messaging
+    if (socket && socket.connected && otherUserId) {
+      console.log('📡 Sending via Socket.IO');
+      sendSocketMessage(otherUserId, messageText, undefined, productName as string);
+      
+      // Scroll to bottom
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+      return;
+    }
+
+    console.log('📡 Socket.IO not available, falling back to HTTP API');
 
     try {
       const token = await AsyncStorage.getItem('token');
@@ -167,7 +268,8 @@ export default function MessageUser() {
       console.log('🔍 Looking up seller by email:', sellerEmail);
       
       // Find the seller user by email
-      const userResponse = await fetch(`http://10.163.13.238:3000/api/auth/user/${sellerEmail}`, {
+      const sellerEmailStr = Array.isArray(sellerEmail) ? sellerEmail[0] : sellerEmail;
+      const userResponse = await fetch(API_ENDPOINTS.getUser(sellerEmailStr), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -181,7 +283,7 @@ export default function MessageUser() {
         console.log('📤 Sending message to seller ID:', sellerUserId);
         
         // Send message to the seller
-        const response = await fetch('http://10.163.13.238:3000/api/chat/send', {
+        const response = await fetch(API_ENDPOINTS.chatSend, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -195,40 +297,50 @@ export default function MessageUser() {
         });
 
         if (response.ok) {
-          console.log('✅ Message sent successfully to database');
-          // Add message to local state immediately for better UX
-          setMessages(prev => [...prev, message]);
-          setNewMessage('');
+          console.log('✅ Message sent successfully via HTTP');
           
           // Mark messages as read
-          await fetch(`http://10.163.13.238:3000/api/chat/mark-read/${sellerUserId}`, {
+          await fetch(API_ENDPOINTS.chatMarkRead(sellerUserId), {
             method: 'PUT',
             headers: {
               'Authorization': `Bearer ${token}`,
             },
           });
-          
-          // Reload messages to get the latest from database
-          setTimeout(() => {
-            loadMessages();
-          }, 500);
         } else {
-          console.error('❌ Failed to send message:', response.status);
-          // Still add message locally for better UX
-          setMessages(prev => [...prev, message]);
-          setNewMessage('');
+          console.error('❌ Failed to send message via HTTP:', response.status);
         }
       } else {
         console.error('❌ Failed to find seller user');
-        // Add message locally if user lookup fails
-        setMessages(prev => [...prev, message]);
-        setNewMessage('');
       }
     } catch (error) {
       console.error('❌ Error sending message:', error);
-      // Add message locally even if API fails
-      setMessages(prev => [...prev, message]);
-      setNewMessage('');
+    }
+  };
+
+  // Handle typing indicators
+  const handleTextChange = (text: string) => {
+    setNewMessage(text);
+    
+    // Send typing indicator via Socket.IO
+    if (otherUserId && socket && socket.connected) {
+      if (text.length > 0) {
+        sendTyping(otherUserId, true);
+        
+        // Clear existing timeout
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        
+        // Stop typing after 2 seconds of inactivity
+        typingTimeoutRef.current = setTimeout(() => {
+          sendTyping(otherUserId, false);
+        }, 2000);
+      } else {
+        sendTyping(otherUserId, false);
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+      }
     }
   };
 
@@ -242,7 +354,8 @@ export default function MessageUser() {
       const token = await AsyncStorage.getItem('token');
 
       // Find the seller user by email
-      const userResponse = await fetch(`http://10.163.13.238:3000/api/auth/user/${sellerEmail}`, {
+      const sellerEmailStr = Array.isArray(sellerEmail) ? sellerEmail[0] : sellerEmail;
+      const userResponse = await fetch(API_ENDPOINTS.getUser(sellerEmailStr), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -252,7 +365,7 @@ export default function MessageUser() {
         const sellerData = await userResponse.json();
         const sellerUserId = sellerData.user._id;
 
-        const response = await fetch('http://10.163.13.238:3000/api/report', {
+        const response = await fetch(API_ENDPOINTS.report, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -350,9 +463,37 @@ export default function MessageUser() {
         <Text style={styles.productName}>{productName}</Text>
       </View>
 
+      {/* Connection Status */}
+      {socket && (
+        <View style={[styles.connectionStatus, { backgroundColor: isConnected ? '#4CAF50' : '#FF9800' }]}>
+          <Text style={styles.connectionStatusText}>
+            {isConnected ? '🟢 Real-time chat active' : '🟡 Connecting...'}
+          </Text>
+        </View>
+      )}
+
       {/* Chat Messages */}
-      <ScrollView style={styles.chatArea} contentContainerStyle={styles.chatContent}>
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.chatArea} 
+        contentContainerStyle={styles.chatContent}
+        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+      >
         {messages.map((message) => renderMessage({ item: message }))}
+        
+        {/* Typing Indicator */}
+        {otherUserTyping && (
+          <View style={[styles.messageContainer, styles.receivedMessage]}>
+            <View style={[styles.messageBubble, styles.messageBubbleLeft, styles.typingBubble]}>
+              <Text style={styles.typingText}>Typing...</Text>
+              <View style={styles.typingDots}>
+                <View style={[styles.typingDot, styles.typingDot1]} />
+                <View style={[styles.typingDot, styles.typingDot2]} />
+                <View style={[styles.typingDot, styles.typingDot3]} />
+              </View>
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Message Input */}
@@ -361,7 +502,7 @@ export default function MessageUser() {
           style={styles.textInput}
           placeholder="Write a message"
           value={newMessage}
-          onChangeText={setNewMessage}
+          onChangeText={handleTextChange}
           multiline
         />
         <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
@@ -628,5 +769,46 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  // Socket.IO real-time styles
+  connectionStatus: {
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  connectionStatusText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  typingBubble: {
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  typingText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  typingDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  typingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#999',
+    marginHorizontal: 2,
+  },
+  typingDot1: {
+    opacity: 0.4,
+  },
+  typingDot2: {
+    opacity: 0.6,
+  },
+  typingDot3: {
+    opacity: 0.8,
   },
 }); 

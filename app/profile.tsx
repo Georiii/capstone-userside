@@ -3,11 +3,13 @@ import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_ENDPOINTS } from '../config/api';
 
 export default function Profile() {
   const router = useRouter();
   const [name, setName] = useState('Name');
   const [email, setEmail] = useState('Email');
+  const [measurements, setMeasurements] = useState<any>(null);
   // Temporary profile image
   const profileImage = 'https://randomuser.me/api/portraits/men/1.jpg';
 
@@ -20,11 +22,32 @@ export default function Profile() {
           const user = JSON.parse(userStr);
           setName(user.name || 'Name');
           setEmail(user.email || 'Email');
+          
+          // Load user profile with measurements
+          if (user.email) {
+            await loadUserProfile(user.email);
+          }
         }
-      } catch (error) {}
+      } catch {
+        // Handle error silently
+      }
     };
     fetchUser();
   }, []);
+
+  const loadUserProfile = async (userEmail: string) => {
+    try {
+      const response = await fetch(`${API_ENDPOINTS.baseUrl}/api/auth/profile/${userEmail}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user.bodyMeasurements) {
+          setMeasurements(data.user.bodyMeasurements);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -47,13 +70,47 @@ export default function Profile() {
           <Text style={styles.profileEmail}>{email}</Text>
         </View>
       </View>
+      
+      {/* Measurement Summary */}
+      <View style={styles.measurementSummary}>
+        <View style={styles.measurementHeader}>
+          <Text style={styles.measurementTitle}>Body Measurements</Text>
+          <TouchableOpacity onPress={() => router.push('/body-measurements')}>
+            <Text style={styles.editMeasurements}>Edit</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.measurementGrid}>
+          <View style={styles.measurementItem}>
+            <Text style={styles.measurementValue}>
+              {measurements?.height ? `${measurements.height}${measurements.measurementsUnit || 'cm'}` : '--'}
+            </Text>
+            <Text style={styles.measurementLabel}>Height</Text>
+          </View>
+          <View style={styles.measurementItem}>
+            <Text style={styles.measurementValue}>
+              {measurements?.weight ? `${measurements.weight}kg` : '--'}
+            </Text>
+            <Text style={styles.measurementLabel}>Weight</Text>
+          </View>
+          <View style={styles.measurementItem}>
+            <Text style={styles.measurementValue}>
+              {measurements?.bust ? `${measurements.bust}${measurements.measurementsUnit || 'cm'}` : '--'}
+            </Text>
+            <Text style={styles.measurementLabel}>Bust</Text>
+          </View>
+        </View>
+      </View>
       {/* Quick Actions */}
       <View style={styles.quickActions}>
         <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/message-box')}>
           <MaterialCommunityIcons name="message-outline" size={32} color="#4B2E2B" />
           <Text style={styles.actionLabel}>Messages</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionItem} onPress={() => alert('Combine feature coming soon!')}>
+        <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/body-measurements')}>
+          <MaterialCommunityIcons name="ruler" size={32} color="#4B2E2B" />
+          <Text style={styles.actionLabel}>Measurements</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionItem} onPress={() => (router as any).push('/combine-outfits')}>
           <FontAwesome5 name="layer-group" size={32} color="#4B2E2B" />
           <Text style={styles.actionLabel}>Combine</Text>
         </TouchableOpacity>
@@ -68,7 +125,9 @@ export default function Profile() {
         <View style={styles.recentHistoryBox}>
           <View style={styles.recentHistoryHeader}>
             <Text style={styles.recentHistoryTitle}>Recent combine history</Text>
-            <TouchableOpacity><Text style={styles.viewAll}>View all</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => (router as any).push('/outfit-history')}>
+              <Text style={styles.viewAll}>View all</Text>
+            </TouchableOpacity>
           </View>
           {/* Example history */}
           <View style={styles.historyRow}>
@@ -160,4 +219,47 @@ const styles = StyleSheet.create({
   navItem: { alignItems: 'center' },
   navText: { fontSize: 12, color: '#666', marginTop: 5 },
   activeText: { color: '#333', fontWeight: 'bold' },
+  measurementSummary: {
+    marginHorizontal: 20,
+    marginTop: 10,
+    backgroundColor: '#F8E3D6',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5D1C0',
+  },
+  measurementHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  measurementTitle: {
+    fontWeight: 'bold',
+    fontSize: 15,
+    color: '#222',
+  },
+  editMeasurements: {
+    color: '#B8860B',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  measurementGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
+  },
+  measurementItem: {
+    alignItems: 'center',
+  },
+  measurementValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#222',
+  },
+  measurementLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
 }); 

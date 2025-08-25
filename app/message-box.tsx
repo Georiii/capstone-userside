@@ -1,18 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  Image,
-  Alert,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { API_ENDPOINTS } from '../config/api';
+import { useSocket } from './contexts/SocketContext';
 
 interface Conversation {
   _id: string;
@@ -36,6 +38,57 @@ export default function MessageBox() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  
+  // Socket.IO context
+  const { socket, isConnected } = useSocket();
+
+  // Socket.IO effect for real-time updates
+  useEffect(() => {
+    if (socket && currentUser) {
+      console.log('📱 Setting up real-time conversation updates');
+      
+      const handleNewMessage = (data: any) => {
+        console.log('📨 New message for conversation list:', data);
+        
+        // Update conversation list when new message arrives
+        setConversations(prevConversations => {
+          const updatedConversations = [...prevConversations];
+          
+          // Find existing conversation
+          const conversationIndex = updatedConversations.findIndex(conv => 
+            conv.user._id === data.fromUserId || conv.user._id === data.toUserId
+          );
+          
+          if (conversationIndex !== -1) {
+            // Update existing conversation
+            updatedConversations[conversationIndex] = {
+              ...updatedConversations[conversationIndex],
+              lastMessage: {
+                text: data.message,
+                timestamp: data.timestamp,
+                senderId: data.fromUserId
+              },
+              unreadCount: data.fromUserId !== currentUser.id ? 
+                updatedConversations[conversationIndex].unreadCount + 1 : 
+                updatedConversations[conversationIndex].unreadCount
+            };
+            
+            // Move to top
+            const updatedConv = updatedConversations.splice(conversationIndex, 1)[0];
+            return [updatedConv, ...updatedConversations];
+          }
+          
+          return updatedConversations;
+        });
+      };
+      
+      socket.on('new-message', handleNewMessage);
+      
+      return () => {
+        socket.off('new-message', handleNewMessage);
+      };
+    }
+  }, [socket, currentUser]);
 
   useEffect(() => {
     loadCurrentUser();
@@ -83,7 +136,7 @@ export default function MessageBox() {
       console.log('🔍 Loading conversations...');
       console.log('🔑 Token:', token.substring(0, 20) + '...');
       
-      const response = await fetch('http://10.163.13.238:3000/api/chat/conversations/list', {
+      const response = await fetch(API_ENDPOINTS.chatConversations, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -233,6 +286,15 @@ export default function MessageBox() {
         <Text style={styles.headerTitle}>MESSAGES</Text>
         <View style={styles.headerRight} />
       </View>
+
+      {/* Real-time Connection Status */}
+      {socket && (
+        <View style={[styles.connectionStatus, { backgroundColor: isConnected ? '#4CAF50' : '#FF9800' }]}>
+          <Text style={styles.connectionStatusText}>
+            {isConnected ? '🟢 Real-time updates active' : '🟡 Connecting...'}
+          </Text>
+        </View>
+      )}
 
       {/* Conversations List */}
       <FlatList
@@ -409,5 +471,16 @@ const styles = StyleSheet.create({
     right: 0,
     marginTop: 5,
     marginRight: 5,
+  },
+  // Real-time connection status
+  connectionStatus: {
+    paddingHorizontal: 15,
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  connectionStatusText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: 'bold',
   },
 }); 

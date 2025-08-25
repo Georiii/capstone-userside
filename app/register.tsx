@@ -1,8 +1,9 @@
-import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Alert, TextInput } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_ENDPOINTS } from '../config/api';
 
 export default function Register() {
   const router = useRouter();
@@ -15,22 +16,25 @@ export default function Register() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSignUp = async () => {
-    if (!name || !username || !email || !password || !confirmPassword) {
-      Alert.alert('Please fill in all fields.');
+  const handleRegister = async () => {
+    if (!name.trim() || !username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+      Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-    if (!/@(gmail|yahoo|outlook)\.com$/.test(email)) {
-      Alert.alert('Email must be a valid Gmail, Yahoo, or Outlook address.');
-      return;
-    }
+
     if (password !== confirmPassword) {
-      Alert.alert('Passwords do not match!');
+      Alert.alert('Error', 'Passwords do not match');
       return;
     }
+
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long');
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await fetch('http://10.163.13.238:3000/api/auth/register', {
+      const response = await fetch(API_ENDPOINTS.register, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,7 +47,7 @@ export default function Register() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
+        } catch {
           const textResponse = await response.text();
           console.error('Non-JSON response:', textResponse);
           errorMessage = `Server error: ${response.status}`;
@@ -54,8 +58,8 @@ export default function Register() {
       let data;
       try {
         data = await response.json();
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
+      } catch {
+        console.error('JSON parse error');
         throw new Error('Invalid server response. Please try again.');
       }
       
@@ -147,7 +151,7 @@ export default function Register() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp} disabled={loading}>
+      <TouchableOpacity style={styles.signUpButton} onPress={handleRegister} disabled={loading}>
         <Text style={styles.signUpButtonText}>{loading ? 'Signing up...' : 'Sign up'}</Text>
       </TouchableOpacity>
 

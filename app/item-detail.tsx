@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ScrollView, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_ENDPOINTS } from '../config/api';
 
 export default function ItemDetail() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function ItemDetail() {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await fetch(`http://10.163.13.238:3000/api/wardrobe/${itemIdStr}`, {
+      const response = await fetch(API_ENDPOINTS.deleteWardrobeItem(itemIdStr), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -36,7 +37,7 @@ export default function ItemDetail() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
+        } catch {
           const textResponse = await response.text();
           console.error('Non-JSON response:', textResponse);
           errorMessage = `Server error: ${response.status}`;
@@ -88,7 +89,7 @@ export default function ItemDetail() {
       const token = await AsyncStorage.getItem('token');
       console.log('Making request to marketplace...');
       
-      const response = await fetch('http://10.163.13.238:3000/api/wardrobe/marketplace', {
+      const response = await fetch(API_ENDPOINTS.marketplace, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -111,7 +112,7 @@ export default function ItemDetail() {
           const errorData = await response.json();
           console.log('Error data:', errorData);
           errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
+        } catch {
           const textResponse = await response.text();
           console.error('Non-JSON response:', textResponse);
           errorMessage = `Server error: ${response.status}`;
@@ -119,12 +120,10 @@ export default function ItemDetail() {
         throw new Error(errorMessage);
       }
 
-      let data;
       try {
-        data = await response.json();
-        console.log('Success data:', data);
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
+        await response.json();
+      } catch {
+        console.error('JSON parse error');
         throw new Error('Invalid server response. Please try again.');
       }
 
