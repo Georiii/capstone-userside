@@ -76,19 +76,34 @@ export default function ItemDetail() {
       return;
     }
 
-    console.log('Starting marketplace post...');
-    console.log('Token:', await AsyncStorage.getItem('token'));
-    console.log('Data being sent:', {
+    console.log('🚀 Starting marketplace post...');
+    console.log('🔑 Token:', await AsyncStorage.getItem('token'));
+    console.log('📝 Data being sent:', {
       imageUrl: imageSrc,
       name: marketName,
       description: marketDesc,
       price: price
     });
+    console.log('🌐 API Endpoint:', API_ENDPOINTS.marketplace);
     
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      console.log('Making request to marketplace...');
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
+      }
+      
+      console.log('📡 Making request to marketplace...');
+      console.log('🔗 Full URL:', API_ENDPOINTS.marketplace);
+      
+      const requestBody = {
+        imageUrl: imageSrc,
+        name: marketName.trim(),
+        description: marketDesc.trim(),
+        price: price,
+      };
+      
+      console.log('📦 Request body:', JSON.stringify(requestBody, null, 2));
       
       const response = await fetch(API_ENDPOINTS.marketplace, {
         method: 'POST',
@@ -96,26 +111,21 @@ export default function ItemDetail() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          imageUrl: imageSrc,
-          name: marketName.trim(),
-          description: marketDesc.trim(),
-          price: price,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
+      console.log('📊 Response status:', response.status);
+      console.log('📋 Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         let errorMessage = 'Failed to post to marketplace.';
         try {
           const errorData = await response.json();
-          console.log('Error data:', errorData);
+          console.log('❌ Error data:', errorData);
           errorMessage = errorData.message || errorMessage;
         } catch {
           const textResponse = await response.text();
-          console.error('Non-JSON response:', textResponse);
+          console.error('❌ Non-JSON response:', textResponse);
           errorMessage = `Server error: ${response.status}`;
         }
         throw new Error(errorMessage);

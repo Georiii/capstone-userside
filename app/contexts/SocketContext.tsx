@@ -175,6 +175,3 @@ export const useSocket = () => {
 
 // Add default export to fix the routing error
 export default SocketProvider;
-
-// Add default export to fix the routing error
-export default SocketProvider;
