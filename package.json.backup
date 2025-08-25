@@ -16,10 +16,14 @@
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
+<<<<<<< HEAD
+    "expo": "^53.0.20",
+=======
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
     "expo": "53.0.20",
+>>>>>>> 0295e6812321f2138bf8d410e4fd283727533be3
     "expo-blur": "~14.1.5",
     "expo-constants": "~17.1.7",
     "expo-dev-client": "~5.2.4",

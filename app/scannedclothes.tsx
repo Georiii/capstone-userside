@@ -271,8 +271,10 @@ export default function ScannedClothes() {
         throw new Error(errorMessage);
       }
 
+      let data;
       try {
-        await response.json();
+        data = await response.json();
+        console.log('Marketplace fetch successful:', data);
       } catch {
         console.error('JSON parse error');
         throw new Error('Invalid server response. Please try again.');
