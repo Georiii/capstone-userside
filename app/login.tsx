@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Alert, TextInput } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_ENDPOINTS } from '../config/api';
 
 // Remove Firebase imports and usage. Refactor login to use your backend API.
@@ -11,9 +10,9 @@ export default function Login() {
   const router = useRouter();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
-  const [showPassword, setShowPassword] = React.useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   React.useEffect(() => {
     // Remove Firebase onAuthStateChanged usage.
@@ -25,12 +24,15 @@ export default function Login() {
   }
 
   const handleLogin = async () => {
+    // Clear any previous error messages
+    setErrorMessage('');
+    
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
+      setErrorMessage('Please fill in all fields');
       return;
     }
     if (email.includes('@') && !(/@(gmail|yahoo|outlook)\.com$/.test(email))) {
-      Alert.alert('Email must be a valid Gmail, Yahoo, or Outlook address.');
+      setErrorMessage('Email must be a valid Gmail, Yahoo, or Outlook address.');
       return;
     }
     
@@ -57,7 +59,8 @@ export default function Login() {
           console.error('Non-JSON response:', textResponse);
           errorMessage = `Server error: ${response.status}`;
         }
-        throw new Error(errorMessage);
+        setErrorMessage(errorMessage);
+        return;
       }
 
       let data;
@@ -69,7 +72,6 @@ export default function Login() {
       }
       
       console.log('Login successful, data:', data);
-      Alert.alert('Login successful!');
       await AsyncStorage.setItem('token', data.token);
       await AsyncStorage.setItem('user', JSON.stringify({ 
         _id: data.user.id,
@@ -82,9 +84,9 @@ export default function Login() {
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
       if (error.message.includes('Network request failed')) {
-        Alert.alert('Connection Error', 'Unable to connect to server. Please check your internet connection.');
+        setErrorMessage('Unable to connect to server. Please check your internet connection.');
       } else {
-        Alert.alert('Login Failed', error.message || 'An unexpected error occurred.');
+        setErrorMessage(error.message || 'An unexpected error occurred.');
       }
     } finally {
       setLoading(false);
@@ -106,20 +108,20 @@ export default function Login() {
         editable={!loading}
       />
 
-      <View style={{ width: 270, flexDirection: 'row', alignItems: 'center', marginTop: 15 }}>
-        <TextInput
-          style={[styles.input, { flex: 1, marginTop: 0 }]}
-          placeholder="Password"
-          placeholderTextColor="white"
-          secureTextEntry={!showPassword}
-          value={password}
-          onChangeText={setPassword}
-          editable={!loading}
-        />
-        <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={{ position: 'absolute', right: 10 }}>
-          <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="gray" />
-        </TouchableOpacity>
-      </View>
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        placeholderTextColor="white"
+        secureTextEntry={true}
+        value={password}
+        onChangeText={setPassword}
+        editable={!loading}
+      />
+
+      {/* Error Message */}
+      {errorMessage ? (
+        <Text style={styles.errorText}>{errorMessage}</Text>
+      ) : null}
 
       <TouchableOpacity 
         style={styles.loginButton} 
@@ -227,5 +229,13 @@ const styles = StyleSheet.create({
     color: '#F88379',
     fontSize: 13,
     textDecorationLine: 'underline',
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 10,
+    fontWeight: '500',
   },
 });

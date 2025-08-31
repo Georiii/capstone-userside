@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import React from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function Wardrobe() {
   const categories = [
@@ -104,7 +104,7 @@ export default function Wardrobe() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F3F0',
+    backgroundColor: '#F4C2C2',
     paddingBottom: 90, // Add extra space for the fixed footer
   },
   header: {
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     paddingBottom: 16,
     paddingHorizontal: 24,
-    backgroundColor: '#F9F3F0',
+    backgroundColor: '#F4C2C2',
   },
   gCircle: {
     width: 40,
@@ -153,13 +153,13 @@ const styles = StyleSheet.create({
   },
   cabinetImage: {
     width: '100%',
-    height: 600, // Even larger cabinet
+    height: 500, // Slightly smaller to fit better
     alignSelf: 'center',
     resizeMode: 'contain',
   },
   categoriesGridOverlay: {
     position: 'absolute',
-    top: '18%',
+    top: '30%', // Move further down to appear more inside the cabinet
     left: 0,
     right: 0,
     flexDirection: 'row',
@@ -167,17 +167,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center', // Center the grid
     alignItems: 'center',
     width: '100%',
-    height: '70%',
+    height: '50%', // Further reduce height to keep within cabinet bounds
     paddingHorizontal: 0,
   },
   categoryCard: {
-    width: 140,
-    height: 140,
+    width: 120, // Slightly smaller to fit better inside cabinet
+    height: 120, // Slightly smaller to fit better inside cabinet
     backgroundColor: '#fff',
-    borderRadius: 24,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    margin: 10,
+    margin: 8, // Smaller margin to fit better
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -185,14 +185,14 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   categoryIcon: {
-    width: 70,
-    height: 70,
+    width: 60, // Smaller icon to match smaller card
+    height: 60, // Smaller icon to match smaller card
     resizeMode: 'contain',
-    marginBottom: 10,
+    marginBottom: 8, // Smaller margin
     alignSelf: 'center',
   },
   categoryLabel: {
-    fontSize: 18,
+    fontSize: 16, // Slightly smaller font to match smaller card
     fontWeight: 'bold',
     color: '#222',
     textAlign: 'center',

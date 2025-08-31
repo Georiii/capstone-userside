@@ -172,12 +172,16 @@ export default function ItemDetail() {
       setPostSuccess(true);
       setShowMarketModal(false);
       setMarketPrice('');
-      Alert.alert('Success', 'Item posted to marketplace successfully!', [
-        {
-          text: 'OK',
-          onPress: () => router.push('/marketplace')
-        }
-      ]);
+      console.log('✅ Item posted to marketplace successfully!');
+      console.log('🧭 Navigating to marketplace...');
+      
+      // Navigate immediately without Alert
+      setTimeout(() => {
+        console.log('🧭 Navigating to marketplace now...');
+        router.push('/marketplace');
+      }, 500);
+      
+      Alert.alert('Success', 'Item posted to marketplace successfully!');
     } catch (error: any) {
       console.error('Error posting to marketplace:', error);
       console.error('Error message:', error.message);
@@ -305,7 +309,7 @@ export default function ItemDetail() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9F3F0', padding: 20 },
+  container: { flex: 1, backgroundColor: '#F4C2C2', padding: 20 },
   scrollView: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

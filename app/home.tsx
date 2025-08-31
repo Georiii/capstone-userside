@@ -1,22 +1,35 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function Home() {
-  const [user] = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    // Remove Firebase authentication state listener
-    // You will need to implement your own authentication state management
-    // For now, we'll just set a dummy user or handle login/logout directly
-    // Example: setUser({ email: 'test@example.com' }); // For testing
-  }, []);
+    // Check if user is logged in
+    const checkAuthStatus = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('user');
+        const token = await AsyncStorage.getItem('token');
+        
+        if (userData && token) {
+          setUser(JSON.parse(userData));
+        } else {
+          // No user data, redirect to login
+          router.replace('/login');
+        }
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+        router.replace('/login');
+      }
+    };
+    
+    checkAuthStatus();
+  }, [router]);
 
-  const handleLogout = async () => {
-    // Remove Firebase signOut
-    // You will need to implement your own logout logic
-    console.log('Logout clicked');
-    // Example: router.push('/login');
-  };
+
 
   if (!user) {
     return (
@@ -31,8 +44,8 @@ export default function Home() {
       <Image source={require('../assets/logo.png')} style={styles.logo} />
       <Text style={styles.title}>Welcome to Glamora!</Text>
       <Text style={styles.email}>{user.email}</Text>
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Logout</Text>
+      <TouchableOpacity style={styles.mainAppButton} onPress={() => router.push('/wardrobe')}>
+        <Text style={styles.mainAppButtonText}>Go to Main App</Text>
       </TouchableOpacity>
     </View>
   );
@@ -65,17 +78,19 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     textAlign: 'center',
   },
-  logoutButton: {
-    backgroundColor: '#FFE8C8',
+  mainAppButton: {
+    backgroundColor: '#4B2E2B',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 20,
+    marginBottom: 20,
   },
-  logoutText: {
-    color: '#000',
+  mainAppButtonText: {
+    color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
   },
+
   loading: {
     fontSize: 18,
     color: 'white',

@@ -328,7 +328,7 @@ export default function MessageBox() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF5F7',
+    backgroundColor: '#F4C2C2',
   },
   header: {
     flexDirection: 'row',
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
-    backgroundColor: '#FFF5F7',
+    backgroundColor: '#F4C2C2',
   },
   backButton: {
     padding: 8,
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFF5F7',
+    backgroundColor: '#F4C2C2',
   },
   loadingText: {
     marginTop: 10,

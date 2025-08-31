@@ -184,7 +184,7 @@ export default function Category() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F3F0',
+    backgroundColor: '#F4C2C2',
     paddingBottom: 90, // Add extra space for the fixed footer
   },
   header: {
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     paddingBottom: 16,
     paddingHorizontal: 24,
-    backgroundColor: '#F9F3F0',
+    backgroundColor: '#F4C2C2',
     justifyContent: 'flex-start', // Align left
   },
   gCircle: {

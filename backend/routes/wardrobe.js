@@ -61,18 +61,18 @@ router.post('/add', auth, async (req, res) => {
     console.log('📝 Request body:', req.body);
     console.log('👤 User ID:', req.userId);
     
-    const { imageUrl, clothName, description, categories, occasions, category } = req.body;
+    const { imageUrl, clothName, description, categories, occasions, category, weather, style, color } = req.body;
     
     if (!imageUrl || !clothName) {
       console.log('❌ Missing required fields');
       return res.status(400).json({ message: 'imageUrl and clothName are required.' });
     }
 
-    // If it's a local image URL, upload to Cloudinary first
+    // Try to upload to Cloudinary, but continue if it fails
     let optimizedImageUrl = imageUrl;
-    if (imageUrl.startsWith('file://') || imageUrl.startsWith('data:')) {
+    if (imageUrl && (imageUrl.startsWith('file://') || imageUrl.startsWith('data:'))) {
       try {
-        console.log('☁️ Uploading to Cloudinary...');
+        console.log('☁️ Attempting Cloudinary upload...');
         const result = await cloudinary.uploader.upload(imageUrl, {
           folder: 'glamora/wardrobe',
           transformation: [
@@ -83,9 +83,12 @@ router.post('/add', auth, async (req, res) => {
         optimizedImageUrl = result.secure_url;
         console.log('✅ Cloudinary upload successful:', optimizedImageUrl);
       } catch (uploadErr) {
-        console.error('❌ Cloudinary upload failed:', uploadErr);
-        // Continue with original URL if upload fails
+        console.error('❌ Cloudinary upload failed, using original image:', uploadErr.message);
+        // Continue with original URL - don't let Cloudinary failure stop the process
+        optimizedImageUrl = imageUrl;
       }
+    } else {
+      console.log('📝 Using provided image URL (not a local file)');
     }
 
     console.log('💾 Creating WardrobeItem...');
@@ -97,6 +100,9 @@ router.post('/add', auth, async (req, res) => {
       categories,
       occasions,
       category,
+      weather,
+      style,
+      color,
     });
     
     console.log('💾 Saving to database...');
@@ -116,7 +122,7 @@ router.get('/', auth, async (req, res) => {
     console.log('🔍 Fetching wardrobe items...');
     console.log('👤 User ID:', req.userId);
     
-    const items = await WardrobeItem.find({ userId: req.userId });
+    const items = await WardrobeItem.find({ userId: req.userId }).sort({ createdAt: -1 });
     console.log(`📊 Found ${items.length} wardrobe items for user`);
     
     res.json({ items });
@@ -171,6 +177,58 @@ router.get('/marketplace', async (req, res) => {
     const query = search ? { name: { $regex: search, $options: 'i' } } : {};
     const items = await MarketplaceItem.find(query).sort({ createdAt: -1 });
     res.json({ items });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/marketplace/user - get marketplace items posted by the current user
+router.get('/marketplace/user', auth, async (req, res) => {
+  try {
+    console.log('🔍 Fetching user marketplace posts...');
+    console.log('👤 User ID:', req.userId);
+    
+    const items = await MarketplaceItem.find({ userId: req.userId }).sort({ createdAt: -1 });
+    console.log(`📊 Found ${items.length} marketplace posts for user`);
+    
+    res.json({ items });
+  } catch (err) {
+    console.error('❌ Error fetching user marketplace posts:', err);
+    res.status(500).json({ message: 'Failed to fetch user posts.', error: err.message });
+  }
+});
+
+// PUT /api/marketplace/:id - update a marketplace item
+router.put('/marketplace/:id', auth, async (req, res) => {
+  try {
+    const { name, description, price } = req.body;
+    if (!name || !description || !price) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const item = await MarketplaceItem.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
+      { name, description, price },
+      { new: true, runValidators: true }
+    );
+
+    if (!item) {
+      return res.status(404).json({ message: 'Item not found or you do not have permission to edit it' });
+    }
+
+    res.json({ message: 'Item updated successfully', item });
+  } catch (err) {
+    console.error('❌ Error updating marketplace item:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// DELETE /api/marketplace/:id - delete a marketplace item
+router.delete('/marketplace/:id', auth, async (req, res) => {
+  try {
+    const item = await MarketplaceItem.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+    res.json({ message: 'Item deleted' });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }

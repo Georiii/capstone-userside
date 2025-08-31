@@ -9,6 +9,7 @@ interface SocketContextType {
   joinChat: (targetUserId: string) => void;
   leaveChat: (targetUserId: string) => void;
   sendTyping: (targetUserId: string, isTyping: boolean) => void;
+  disconnectSocket: () => void;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -151,6 +152,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
+  const disconnectSocket = () => {
+    if (socket && socket.connected) {
+      console.log('🔌 Manually disconnecting socket');
+      socket.disconnect();
+      setSocket(null);
+      setIsConnected(false);
+      setCurrentUserId(null);
+    }
+  };
+
   return (
     <SocketContext.Provider value={{
       socket,
@@ -158,7 +169,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       sendMessage,
       joinChat,
       leaveChat,
-      sendTyping
+      sendTyping,
+      disconnectSocket
     }}>
       {children}
     </SocketContext.Provider>

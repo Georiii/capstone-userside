@@ -51,6 +51,9 @@ export const API_ENDPOINTS = {
   marketplaceSearch: (query: string) => `${API_BASE_URL}/api/wardrobe/marketplace?search=${encodeURIComponent(query)}`,
   addMarketplaceItem: `${API_BASE_URL}/api/wardrobe/marketplace`,
   getMarketplaceItems: `${API_BASE_URL}/api/wardrobe/marketplace`,
+  getUserMarketplaceItems: `${API_BASE_URL}/api/wardrobe/marketplace/user`,
+  deleteMarketplaceItem: (id: string) => `${API_BASE_URL}/api/wardrobe/marketplace/${id}`,
+  updateMarketplaceItem: (id: string) => `${API_BASE_URL}/api/wardrobe/marketplace/${id}`,
   
   // Chat
   chatConversations: `${API_BASE_URL}/api/chat/conversations/list`,

@@ -557,14 +557,14 @@ export default function MessageUser() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF5F7',
+    backgroundColor: '#F4C2C2',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 20,
-    backgroundColor: '#FFF5F7',
+    backgroundColor: '#F4C2C2',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
   },

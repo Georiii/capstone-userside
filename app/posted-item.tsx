@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import React from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function PostedItem() {
   const params = useLocalSearchParams();
@@ -32,8 +32,8 @@ export default function PostedItem() {
         <View style={styles.userInfo}>
           <Image source={{ uri: 'https://randomuser.me/api/portraits/men/32.jpg' }} style={styles.userAvatar} />
           <View>
-            <Text style={styles.userName}>Name</Text>
-            <Text style={styles.userEmail}>Email</Text>
+            <Text style={styles.userName}>{userName || 'Name'}</Text>
+            <Text style={styles.userEmail}>{userEmail || 'Email'}</Text>
           </View>
         </View>
         <TouchableOpacity style={styles.messageButton} onPress={() => router.push({
@@ -53,7 +53,7 @@ export default function PostedItem() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9F3F0', padding: 20 },
+  container: { flex: 1, backgroundColor: '#F4C2C2', padding: 20 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     marginBottom: 10, marginTop: 10,

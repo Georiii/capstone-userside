@@ -36,8 +36,34 @@ interface OutfitCombination {
     color: string;
     style: string;
   };
+  shoes?: {
+    _id: string;
+    clothName: string;
+    description: string;
+    imageUrl: string;
+    category: string;
+    weather: string;
+    color: string;
+    style: string;
+  };
+  accessories?: {
+    _id: string;
+    clothName: string;
+    description: string;
+    imageUrl: string;
+    category: string;
+    weather: string;
+    color: string;
+    style: string;
+  }[];
   weather: string;
   occasion: string;
+  confidence?: number;
+  aiGenerated?: boolean;
+  totalScore?: number;
+  styleCoherence?: string;
+  weatherSuitability?: string;
+  occasionMatch?: string;
 }
 
 export default function OutfitSuggestions() {
@@ -140,6 +166,23 @@ export default function OutfitSuggestions() {
     (router as any).push('/outfit-history');
   };
 
+  const getMetricColor = (metric: string) => {
+    switch (metric.toLowerCase()) {
+      case 'excellent':
+      case 'perfect':
+        return { color: '#4CAF50' }; // Green
+      case 'good':
+        return { color: '#2196F3' }; // Blue
+      case 'fair':
+        return { color: '#FF9800' }; // Orange
+      case 'poor':
+      case 'mixed':
+        return { color: '#F44336' }; // Red
+      default:
+        return { color: '#666' }; // Gray
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -185,11 +228,28 @@ export default function OutfitSuggestions() {
           <View key={outfit.id} style={styles.outfitCard}>
             {/* Outfit Header */}
             <View style={styles.outfitHeader}>
-              <Text style={styles.outfitName}>{outfit.name}</Text>
+              <View style={styles.outfitTitleContainer}>
+                <Text style={styles.outfitName}>{outfit.name}</Text>
+                {outfit.aiGenerated && (
+                  <View style={styles.aiIndicator}>
+                    <Text style={styles.aiIndicatorText}>🤖 AI</Text>
+                  </View>
+                )}
+              </View>
               <View style={styles.outfitBadge}>
                 <Text style={styles.outfitBadgeText}>{outfit.occasion}</Text>
               </View>
             </View>
+
+            {/* AI Confidence Indicators */}
+            {outfit.aiGenerated && outfit.confidence !== undefined && (
+              <View style={styles.confidenceContainer}>
+                <View style={styles.confidenceBar}>
+                  <View style={[styles.confidenceFill, { width: `${outfit.confidence}%` }]} />
+                </View>
+                <Text style={styles.confidenceText}>Confidence: {outfit.confidence}%</Text>
+              </View>
+            )}
 
             {/* Outfit Preview Images */}
             <View style={styles.outfitPreview}>
@@ -254,6 +314,36 @@ export default function OutfitSuggestions() {
                 <Text style={styles.itemLabel}>Occasion:</Text>
                 <Text style={styles.itemValue}>{outfit.occasion}</Text>
               </View>
+
+              {/* AI Metrics */}
+              {outfit.aiGenerated && (
+                <View style={styles.aiMetricsContainer}>
+                  {outfit.styleCoherence && (
+                    <View style={styles.metricItem}>
+                      <Text style={styles.metricLabel}>Style:</Text>
+                      <Text style={[styles.metricValue, getMetricColor(outfit.styleCoherence)]}>
+                        {outfit.styleCoherence}
+                      </Text>
+                    </View>
+                  )}
+                  {outfit.weatherSuitability && (
+                    <View style={styles.metricItem}>
+                      <Text style={styles.metricLabel}>Weather:</Text>
+                      <Text style={[styles.metricValue, getMetricColor(outfit.weatherSuitability)]}>
+                        {outfit.weatherSuitability}
+                      </Text>
+                    </View>
+                  )}
+                  {outfit.occasionMatch && (
+                    <View style={styles.metricItem}>
+                      <Text style={styles.metricLabel}>Occasion:</Text>
+                      <Text style={[styles.metricValue, getMetricColor(outfit.occasionMatch)]}>
+                        {outfit.occasionMatch}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
             </View>
 
             {/* Use It Button */}
@@ -281,7 +371,7 @@ export default function OutfitSuggestions() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8ECE6',
+    backgroundColor: '#F4C2C2',
   },
   header: {
     flexDirection: 'row',
@@ -290,7 +380,7 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
-    backgroundColor: '#F8ECE6',
+    backgroundColor: '#F4C2C2',
     borderBottomWidth: 1,
     borderBottomColor: '#E5D1C0',
   },
@@ -313,7 +403,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8ECE6',
+    backgroundColor: '#F4C2C2',
   },
   loadingText: {
     fontSize: 18,
@@ -470,5 +560,62 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#4B2E2B',
+  },
+  outfitTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  aiIndicator: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  aiIndicatorText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  confidenceContainer: {
+    marginBottom: 16,
+  },
+  confidenceBar: {
+    height: 6,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  confidenceFill: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+    borderRadius: 3,
+  },
+  confidenceText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+  },
+  aiMetricsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  metricItem: {
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
+  metricValue: {
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

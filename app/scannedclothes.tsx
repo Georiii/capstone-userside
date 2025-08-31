@@ -8,15 +8,24 @@ import { API_ENDPOINTS } from '../config/api';
 export default function ScannedClothes() {
   const { imageUri } = useLocalSearchParams();
   const router = useRouter();
+  
+  // Debug router
+  console.log('🧭 Router initialized:', !!router);
+  console.log('🧭 Router methods available:', Object.keys(router));
   const [clothName, setClothName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSubcategories, setSelectedSubcategories] = useState<{ name: string, type: string }[]>([]);
   const [occasions, setOccasions] = useState<string[]>([]);
+  const [selectedWeather, setSelectedWeather] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState('');
+  const [selectedColor, setSelectedColor] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
   const [showOccasionModal, setShowOccasionModal] = useState(false);
+  const [showWeatherModal, setShowWeatherModal] = useState(false);
+  const [showStyleModal, setShowStyleModal] = useState(false);
   const [showMarketplaceModal, setMarketplaceModal] = useState(false);
   const [marketplaceName, setMarketplaceName] = useState('');
   const [marketplaceDescription, setMarketplaceDescription] = useState('');
@@ -57,6 +66,9 @@ export default function ScannedClothes() {
   };
 
   const occasionOptions = ['Birthdays', 'Weddings', 'Work', 'Casual', 'Party', 'Sports'];
+  const weatherOptions = ['Sunny', 'Rainy', 'Cold', 'Warm', 'Cloudy'];
+  const styleOptions = ['Casual', 'Formal', 'Sporty', 'Vintage', 'Minimalist', 'Streetwear'];
+  const colorOptions = ['Black', 'White', 'Red', 'Blue', 'Green', 'Yellow', 'Pink', 'Purple', 'Brown', 'Gray', 'Orange'];
 
   const handleAddToWardrobe = (): void => {
     setShowCategoryModal(true);
@@ -93,6 +105,18 @@ export default function ScannedClothes() {
 
   const handleOccasionDone = (): void => {
     setShowOccasionModal(false);
+    setShowWeatherModal(true); // Continue to weather selection
+  };
+
+  const handleWeatherSelect = (weather: string): void => {
+    setSelectedWeather(weather);
+    setShowWeatherModal(false);
+    setShowStyleModal(true); // Continue to style selection
+  };
+
+  const handleStyleSelect = (style: string): void => {
+    setSelectedStyle(style);
+    setShowStyleModal(false);
   };
 
   const handleMarketplaceSubmit = async (): Promise<void> => {
@@ -143,12 +167,16 @@ export default function ScannedClothes() {
 
       setLoading(false);
       setMarketplaceModal(false);
-      Alert.alert('Success', 'Item posted to marketplace successfully!', [
-        {
-          text: 'OK',
-          onPress: () => router.push('/marketplace')
-        }
-      ]);
+      console.log('✅ Item posted to marketplace successfully!');
+      console.log('🧭 Navigating to marketplace...');
+      
+      // Navigate immediately without Alert
+      setTimeout(() => {
+        console.log('🧭 Navigating to marketplace now...');
+        router.push('/marketplace');
+      }, 500);
+      
+      Alert.alert('Success', 'Item posted to marketplace successfully!');
     } catch (error: any) {
       setLoading(false);
       if (error.message.includes('Network request failed')) {
@@ -172,32 +200,40 @@ export default function ScannedClothes() {
       console.log('🔑 Token from AsyncStorage:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
       console.log('📡 Making request to:', API_ENDPOINTS.addWardrobeItem);
       
-      // TEMPORARILY DISABLED: Cloudinary upload
-      // let cloudinaryImageUrl = imageUri;
-      // try {
-      //   console.log('🔍 Uploading image to Cloudinary...');
-      //   const uploadResponse = await fetch(API_ENDPOINTS.uploadImage, {
-      //     method: 'POST',
-      //     headers: {
-      //       'Content-Type': 'application/json',
-      //       'Authorization': `Bearer ${token}`,
-      //     },
-      //     body: JSON.stringify({
-      //       imageUrl: imageUri,
-      //       folder: 'glamora/wardrobe'
-      //     }),
-      //   });
+      // Try Cloudinary upload, but continue if it fails
+      let cloudinaryImageUrl = imageUri;
+      try {
+        console.log('🔍 Attempting Cloudinary upload...');
+        console.log('📡 Upload endpoint:', API_ENDPOINTS.uploadImage);
+        console.log('🖼️ Image URI length:', imageUri ? imageUri.length : 0);
+        
+        const uploadResponse = await fetch(API_ENDPOINTS.uploadImage, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            imageUrl: imageUri,
+            folder: 'glamora/wardrobe'
+          }),
+        });
 
-      //   if (uploadResponse.ok) {
-      //     const uploadResult = await response.json();
-      //     cloudinaryImageUrl = uploadResult.imageUrl;
-      //     console.log('✅ Image uploaded to Cloudinary:', cloudinaryImageUrl);
-      //   } else {
-      //     console.log('⚠️ Cloudinary upload failed, using original image');
-      //   }
-      // } catch (uploadError) {
-      //   console.log('⚠️ Cloudinary upload error, using original image:', uploadError);
-      // }
+        console.log('📊 Upload response status:', uploadResponse.status);
+        
+        if (uploadResponse.ok) {
+          const uploadResult = await uploadResponse.json();
+          cloudinaryImageUrl = uploadResult.imageUrl;
+          console.log('✅ Image uploaded to Cloudinary:', cloudinaryImageUrl);
+        } else {
+          const errorText = await uploadResponse.text();
+          console.log('⚠️ Cloudinary upload failed:', errorText);
+          console.log('⚠️ Using original image instead');
+        }
+      } catch (uploadError) {
+        console.log('⚠️ Cloudinary upload error, using original image:', uploadError);
+        console.log('⚠️ This is not critical - continuing with original image');
+      }
       
       // Save to wardrobe with original image URL (temporarily)
       const response = await fetch(API_ENDPOINTS.addWardrobeItem, {
@@ -207,12 +243,15 @@ export default function ScannedClothes() {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          imageUrl: imageUri, // Use original imageUri instead of cloudinaryImageUrl
+          imageUrl: cloudinaryImageUrl, // Use Cloudinary optimized URL
           clothName: clothName.trim(),
           description: description.trim(),
           categories: selectedSubcategories.map(s => s.type),
           occasions,
           category: selectedCategory,
+          weather: selectedWeather,
+          style: selectedStyle,
+          color: selectedColor,
         }),
       });
 
@@ -237,12 +276,16 @@ export default function ScannedClothes() {
       }
       
       setLoading(false);
-      Alert.alert('Success', 'Clothing item saved successfully!', [
-        {
-          text: 'OK',
-          onPress: () => router.push('/wardrobe')
-        }
-      ]);
+      console.log('✅ Item saved successfully!');
+      console.log('🧭 Navigating to wardrobe page...');
+      
+      // Navigate immediately without Alert
+      setTimeout(() => {
+        console.log('🧭 Navigating to wardrobe now...');
+        router.push('/wardrobe');
+      }, 500);
+      
+      Alert.alert('Success', 'Clothing item saved successfully!');
     } catch (error: any) {
       setLoading(false);
       if (error.message.includes('Network request failed')) {
@@ -474,8 +517,82 @@ export default function ScannedClothes() {
               ))}
             </ScrollView>
             <TouchableOpacity style={styles.modalButton} onPress={handleOccasionDone}>
-              <Text style={styles.modalButtonText}>Done</Text>
+              <Text style={styles.modalButtonText}>Next: Weather</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Weather Selection Modal */}
+      <Modal visible={showWeatherModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Weather Suitability</Text>
+              <TouchableOpacity onPress={() => setShowWeatherModal(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtitle}>When is this item suitable to wear?</Text>
+            <ScrollView style={styles.optionsContainer}>
+              {weatherOptions.map((weather) => (
+                <TouchableOpacity
+                  key={weather}
+                  style={[
+                    styles.optionItem,
+                    selectedWeather === weather && styles.selectedOption
+                  ]}
+                  onPress={() => handleWeatherSelect(weather)}
+                >
+                  <Text style={[
+                    styles.optionText,
+                    selectedWeather === weather && styles.selectedOptionText
+                  ]}>
+                    {weather}
+                  </Text>
+                  {selectedWeather === weather && (
+                    <Ionicons name="checkmark" size={20} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Style Selection Modal */}
+      <Modal visible={showStyleModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Style</Text>
+              <TouchableOpacity onPress={() => setShowStyleModal(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtitle}>What style category best describes this item?</Text>
+            <ScrollView style={styles.optionsContainer}>
+              {styleOptions.map((style) => (
+                <TouchableOpacity
+                  key={style}
+                  style={[
+                    styles.optionItem,
+                    selectedStyle === style && styles.selectedOption
+                  ]}
+                  onPress={() => handleStyleSelect(style)}
+                >
+                  <Text style={[
+                    styles.optionText,
+                    selectedStyle === style && styles.selectedOptionText
+                  ]}>
+                    {style}
+                  </Text>
+                  {selectedStyle === style && (
+                    <Ionicons name="checkmark" size={20} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -540,7 +657,7 @@ export default function ScannedClothes() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FDF1EC',
+    backgroundColor: '#F4C2C2',
   },
   header: {
     flexDirection: 'row',
@@ -640,6 +757,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontWeight: 'bold',
     fontSize: 20,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 15,
+    paddingHorizontal: 10,
   },
   optionsContainer: {
     width: '100%',

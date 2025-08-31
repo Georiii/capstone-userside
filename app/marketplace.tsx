@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, TextInput, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_ENDPOINTS } from '../config/api';
 
 interface MarketplaceItem {
@@ -72,7 +72,7 @@ export default function Marketplace() {
       </View>
       {/* Search Bar */}
       <View style={styles.searchBarContainer}>
-        <Ionicons name="search" size={22} color="#b8b0a8" style={{ marginLeft: 8 }} />
+        <Ionicons name="shirt" size={20} color="#b8b0a8" style={{ marginLeft: 8 }} />
         <TextInput
           style={styles.searchInput}
           placeholder="search cloth"
@@ -80,6 +80,9 @@ export default function Marketplace() {
           onChangeText={setSearchQuery}
           placeholderTextColor="#b8b0a8"
         />
+        <TouchableOpacity style={styles.searchButton}>
+          <Ionicons name="search" size={20} color="#b8b0a8" />
+        </TouchableOpacity>
       </View>
       <Text style={styles.marketplaceTitle}>MARKETPLACE</Text>
       {loading ? (
@@ -142,7 +145,7 @@ export default function Marketplace() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9F3F0', paddingBottom: 90 },
+  container: { flex: 1, backgroundColor: '#F4C2C2', paddingBottom: 90 },
   header: {
     flexDirection: 'row', alignItems: 'center', paddingTop: 40, paddingBottom: 16, paddingHorizontal: 24,
     backgroundColor: '#F9F3F0', justifyContent: 'flex-start',
@@ -160,6 +163,10 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1, fontSize: 16, marginLeft: 8, color: '#222', backgroundColor: 'transparent',
   },
+  searchButton: {
+    padding: 8,
+    marginRight: 8,
+  },
   marketplaceTitle: {
     fontSize: 22, fontWeight: 'bold', color: '#222', marginLeft: 24, marginTop: 10, marginBottom: 18,
   },
@@ -170,16 +177,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start', width: '100%',
   },
   itemCard: {
-    width: 170, height: 210, backgroundColor: '#fff', borderRadius: 18, margin: 10, alignItems: 'center',
+    width: 170, height: 220, backgroundColor: '#fff', borderRadius: 18, margin: 10, alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 3,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
   },
   itemImage: {
     width: 150, height: 130, borderRadius: 12, marginTop: 10, marginBottom: 8, backgroundColor: '#eee',
   },
   itemInfoRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '90%', marginTop: 6,
+    paddingHorizontal: 8,
   },
-  itemLabel: { fontSize: 15, fontWeight: 'bold', color: '#222' },
+  itemLabel: { fontSize: 15, fontWeight: 'bold', color: '#222', flex: 1 },
   itemPrice: { fontSize: 15, color: '#222', fontWeight: 'bold', marginLeft: 8 },
   navigation: {
     flexDirection: 'row', backgroundColor: '#F5F2EF', paddingVertical: 15, paddingHorizontal: 20,

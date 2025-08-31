@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { API_ENDPOINTS } from '../config/api';
 
 export default function Profile() {
@@ -59,7 +59,9 @@ export default function Profile() {
         </View>
         <View style={styles.headerRight}>
           <Ionicons name="trophy-outline" size={28} color="#B8860B" style={{ marginRight: 16 }} />
-          <Ionicons name="settings-outline" size={28} color="#4B2E2B" />
+          <TouchableOpacity onPress={() => router.push('/settings')}>
+            <Ionicons name="settings-outline" size={28} color="#4B2E2B" />
+          </TouchableOpacity>
         </View>
       </View>
       {/* Profile Info */}
@@ -114,9 +116,9 @@ export default function Profile() {
           <FontAwesome5 name="layer-group" size={32} color="#4B2E2B" />
           <Text style={styles.actionLabel}>Combine</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionItem} onPress={() => alert('Frequently used feature coming soon!')}>
+        <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/analytics')}>
           <MaterialCommunityIcons name="chart-line" size={32} color="#4B2E2B" />
-          <Text style={styles.actionLabel}>Frequently{`\n`}used</Text>
+          <Text style={styles.actionLabel}>Analytics{`\n`}& Insights</Text>
         </TouchableOpacity>
       </View>
       {/* Data History */}
@@ -171,7 +173,7 @@ export default function Profile() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8ECE6', paddingBottom: 90 },
+  container: { flex: 1, backgroundColor: '#F4C2C2', paddingBottom: 90 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 40, paddingBottom: 10, paddingHorizontal: 20, backgroundColor: '#F8ECE6',
@@ -193,14 +195,20 @@ const styles = StyleSheet.create({
   profileName: { fontSize: 20, fontWeight: 'bold', color: '#222' },
   profileEmail: { fontSize: 15, color: '#666', marginTop: 2 },
   quickActions: {
-    flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginVertical: 10, marginBottom: 18,
+    flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginVertical: 15, marginBottom: 20,
+    paddingHorizontal: 20,
   },
-  actionItem: { alignItems: 'center', flex: 1 },
-  actionLabel: { fontSize: 13, color: '#222', marginTop: 6, textAlign: 'center' },
+  actionItem: { alignItems: 'center', flex: 1, paddingHorizontal: 10 },
+  actionLabel: { fontSize: 13, color: '#222', marginTop: 8, textAlign: 'center', fontWeight: '500' },
   dataHistorySection: { marginHorizontal: 20, marginTop: 10 },
   dataHistoryTitle: { fontSize: 18, fontWeight: 'bold', color: '#222', marginBottom: 8 },
   recentHistoryBox: {
-    backgroundColor: '#F8E3D6', borderRadius: 16, padding: 14, marginBottom: 20, borderWidth: 1, borderColor: '#E5D1C0',
+    backgroundColor: '#F8E3D6', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: '#E5D1C0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   recentHistoryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   recentHistoryTitle: { fontWeight: 'bold', fontSize: 15, color: '#222' },
@@ -211,14 +219,14 @@ const styles = StyleSheet.create({
   historyDate: { fontSize: 14, color: '#222', flex: 1 },
   historyOutfit: { fontSize: 14, color: '#222', flex: 1, textAlign: 'center' },
   navigation: {
-    flexDirection: 'row', backgroundColor: '#F5F2EF', paddingVertical: 15, paddingHorizontal: 20,
-    justifyContent: 'space-around', borderTopLeftRadius: 18, borderTopRightRadius: 18, shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 2, elevation: 2, position: 'absolute',
+    flexDirection: 'row', backgroundColor: '#F5F2EF', paddingVertical: 18, paddingHorizontal: 20,
+    justifyContent: 'space-around', borderTopLeftRadius: 20, borderTopRightRadius: 20, shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 5, position: 'absolute',
     left: 0, right: 0, bottom: 0, zIndex: 100,
   },
   navItem: { alignItems: 'center' },
-  navText: { fontSize: 12, color: '#666', marginTop: 5 },
-  activeText: { color: '#333', fontWeight: 'bold' },
+  navText: { fontSize: 12, color: '#666', marginTop: 6, fontWeight: '500' },
+  activeText: { color: '#333', fontWeight: 'bold', fontSize: 13 },
   measurementSummary: {
     marginHorizontal: 20,
     marginTop: 10,
