@@ -58,6 +58,12 @@ interface OutfitCombination {
   }[];
   weather: string;
   occasion: string;
+  weatherMeta?: {
+    location?: string;
+    temperature?: number;
+    description?: string;
+    icon?: string;
+  } | null;
   confidence?: number;
   aiGenerated?: boolean;
   totalScore?: number;
@@ -213,6 +219,21 @@ export default function OutfitSuggestions() {
 
   return (
     <View style={styles.container}>
+      {outfits[0]?.weatherMeta && (
+        <View style={styles.weatherBanner}>
+          <View style={styles.weatherLeft}>
+            {outfits[0].weatherMeta?.icon ? (
+              <Image source={{ uri: `https:${outfits[0].weatherMeta.icon}` }} style={styles.weatherIcon} />
+            ) : (
+              <Ionicons name="partly-sunny" size={20} color="#4B2E2B" />
+            )}
+            <Text style={styles.weatherText}>
+              {outfits[0].weatherMeta?.location || 'Current location'} • {outfits[0].weatherMeta?.description || outfits[0].weather}
+            </Text>
+          </View>
+          <Text style={styles.weatherTemp}>{outfits[0].weatherMeta?.temperature}°C</Text>
+        </View>
+      )}
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => (router as any).push('/combine-outfits')}>
@@ -229,7 +250,10 @@ export default function OutfitSuggestions() {
             {/* Outfit Header */}
             <View style={styles.outfitHeader}>
               <View style={styles.outfitTitleContainer}>
-                <Text style={styles.outfitName}>{outfit.name}</Text>
+                <Text style={styles.outfitName}>
+                  {outfit.name}
+                  <Text style={styles.weatherOptimizedLabel}>  • Weather-Optimized Outfit</Text>
+                </Text>
                 {outfit.aiGenerated && (
                   <View style={styles.aiIndicator}>
                     <Text style={styles.aiIndicatorText}>🤖 AI</Text>
@@ -304,6 +328,31 @@ export default function OutfitSuggestions() {
                   </Text>
                 </View>
               </View>
+
+              {outfit.shoes && (
+                <View style={styles.itemSection}>
+                  <Text style={styles.itemLabel}>Shoes:</Text>
+                  <View style={styles.itemInfo}>
+                    <Text style={styles.itemName}>{outfit.shoes.clothName}</Text>
+                    <Text style={styles.itemDescription}>
+                      {outfit.shoes.description || `${outfit.shoes.category} - ${outfit.shoes.color || 'N/A'}`}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {outfit.accessories && outfit.accessories.length > 0 && (
+                <View style={styles.itemSection}>
+                  <Text style={styles.itemLabel}>Accessories:</Text>
+                  <View style={styles.itemInfo}>
+                    {outfit.accessories.map((acc, i) => (
+                      <Text key={i} style={styles.itemDescription}>
+                        • {acc.clothName} ({acc.category})
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              )}
 
               {/* Weather and Occasion */}
               <View style={styles.itemSection}>
@@ -565,6 +614,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+  },
+  weatherOptimizedLabel: {
+    fontSize: 12,
+    color: '#2196F3',
+    marginLeft: 6,
+  },
+  weatherBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8E3D6',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5D1C0',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  weatherLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  weatherIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+  },
+  weatherText: {
+    color: '#4B2E2B',
+    fontWeight: '600',
+  },
+  weatherTemp: {
+    color: '#4B2E2B',
+    fontWeight: '700',
   },
   aiIndicator: {
     backgroundColor: '#4CAF50',

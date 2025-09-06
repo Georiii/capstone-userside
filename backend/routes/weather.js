@@ -18,7 +18,7 @@ function auth(req, res, next) {
   }
 }
 
-// GET /api/weather/current - Get current weather for location
+// GET /api/weather/current - Get current weather for location (WeatherAPI.com)
 router.get('/current', auth, async (req, res) => {
   try {
     const { location } = req.query;
@@ -30,34 +30,40 @@ router.get('/current', auth, async (req, res) => {
       });
     }
 
-    // Check if weather API is configured
-    const WEATHER_API_KEY = process.env.OPENWEATHER_API_KEY;
+    // Prefer env var, otherwise use provided key (note: for dev only)
+    const WEATHER_API_KEY = process.env.WEATHERAPI_KEY || 'ec2f5a57e78f27edad800ee551507d1d';
+
+    // If no key at all, return mock data
     if (!WEATHER_API_KEY) {
-      console.log('⚠️ Weather API key not configured, returning mock data');
+      console.log('⚠️ WeatherAPI key not configured, returning mock data');
       return res.json({
         location: location,
         weather: 'Warm',
         temperature: 28,
         description: 'Partly cloudy',
         humidity: 65,
+        precipitationMm: 0,
+        icon: null,
         source: 'mock',
         message: 'Weather API not configured. Using default warm weather.',
         recommendation: 'Good for light, breathable clothing'
       });
     }
 
-    // Make request to OpenWeatherMap API
+    // Make request to WeatherAPI.com
     const axios = require('axios');
-    const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&appid=${WEATHER_API_KEY}&units=metric`;
+    const weatherUrl = `http://api.weatherapi.com/v1/current.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&aqi=no`;
+
+    console.log('🌤️ Fetching weather data (WeatherAPI) for:', location);
+    const weatherResponse = await axios.get(weatherUrl, { timeout: 10000 });
+    const weatherData = weatherResponse.data; // { location, current }
     
-    console.log('🌤️ Fetching weather data for:', location);
-    const weatherResponse = await axios.get(weatherUrl);
-    const weatherData = weatherResponse.data;
-    
-    // Convert OpenWeatherMap data to our categories
-    const temperature = weatherData.main.temp;
-    const weatherMain = weatherData.weather[0].main.toLowerCase();
-    const description = weatherData.weather[0].description;
+    const temperature = weatherData.current?.temp_c;
+    const description = weatherData.current?.condition?.text || 'Unknown conditions';
+    const icon = weatherData.current?.condition?.icon || null;
+    const precipMm = typeof weatherData.current?.precip_mm === 'number' ? weatherData.current.precip_mm : 0;
+    const humidity = weatherData.current?.humidity ?? 0;
+    const conditionLower = description.toLowerCase();
     
     let weatherCategory = 'Warm';
     let recommendation = 'Comfortable clothing recommended';
@@ -75,15 +81,15 @@ router.get('/current', auth, async (req, res) => {
     }
     
     // Weather condition adjustments
-    if (weatherMain.includes('rain') || weatherMain.includes('drizzle')) {
+    if (conditionLower.includes('rain') || conditionLower.includes('drizzle') || precipMm > 0) {
       weatherCategory = 'Rainy';
       recommendation = 'Waterproof clothing and layers recommended';
-    } else if (weatherMain.includes('cloud')) {
+    } else if (conditionLower.includes('cloud')) {
       if (temperature < 20) {
         weatherCategory = 'Cloudy';
         recommendation = 'Light layers recommended';
       }
-    } else if (weatherMain.includes('clear') || weatherMain.includes('sun')) {
+    } else if (conditionLower.includes('clear') || conditionLower.includes('sun')) {
       weatherCategory = 'Sunny';
       recommendation = 'Sun protection and light clothing recommended';
     }
@@ -92,23 +98,25 @@ router.get('/current', auth, async (req, res) => {
       location,
       temperature,
       weatherCategory,
-      description
+      description,
+      precipMm
     });
     
     res.json({
-      location: weatherData.name,
+      location: `${weatherData.location?.name || location}${weatherData.location?.country ? ', ' + weatherData.location.country : ''}`,
       weather: weatherCategory,
       temperature: Math.round(temperature),
       description: description,
-      humidity: weatherData.main.humidity,
-      source: 'openweathermap',
+      humidity,
+      precipitationMm: precipMm,
+      icon,
+      source: 'weatherapi',
       recommendation: recommendation,
       rawData: {
-        main: weatherData.weather[0].main,
-        description: weatherData.weather[0].description,
-        temp: temperature,
-        feels_like: weatherData.main.feels_like,
-        humidity: weatherData.main.humidity
+        temp_c: temperature,
+        condition_text: description,
+        humidity,
+        precip_mm: precipMm
       }
     });
     
@@ -130,11 +138,56 @@ router.get('/current', auth, async (req, res) => {
       temperature: 25,
       description: 'Weather data unavailable',
       humidity: 60,
+      precipitationMm: 0,
+      icon: null,
       source: 'fallback',
       message: 'Weather service unavailable. Using default settings.',
       recommendation: 'Comfortable clothing recommended',
       error: 'Weather API temporarily unavailable'
     });
+  }
+});
+
+// GET /api/weather/forecast - Get daily forecast (1-3 days) from WeatherAPI.com
+router.get('/forecast', auth, async (req, res) => {
+  try {
+    const { location, days = 1 } = req.query;
+
+    if (!location) {
+      return res.status(400).json({ message: 'Location is required', example: '/api/weather/forecast?location=Manila&days=1' });
+    }
+
+    const WEATHER_API_KEY = process.env.WEATHERAPI_KEY || 'ec2f5a57e78f27edad800ee551507d1d';
+
+    const axios = require('axios');
+    const url = `http://api.weatherapi.com/v1/forecast.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&days=${Math.max(1, Math.min(parseInt(days) || 1, 3))}&aqi=no&alerts=no`;
+
+    console.log('📅 Fetching weather forecast (WeatherAPI) for:', location);
+    const resp = await axios.get(url, { timeout: 10000 });
+
+    const out = {
+      location: `${resp.data.location?.name || location}${resp.data.location?.country ? ', ' + resp.data.location.country : ''}`,
+      current: {
+        temp_c: resp.data.current?.temp_c,
+        condition: resp.data.current?.condition?.text,
+        icon: resp.data.current?.condition?.icon,
+        precip_mm: resp.data.current?.precip_mm,
+        humidity: resp.data.current?.humidity,
+      },
+      forecast: (resp.data.forecast?.forecastday || []).map(d => ({
+        date: d.date,
+        avgtemp_c: d.day?.avgtemp_c,
+        condition: d.day?.condition?.text,
+        icon: d.day?.condition?.icon,
+        daily_chance_of_rain: d.day?.daily_chance_of_rain,
+        totalprecip_mm: d.day?.totalprecip_mm,
+      }))
+    };
+
+    res.json(out);
+  } catch (error) {
+    console.error('❌ Weather forecast error:', error.message);
+    res.status(500).json({ message: 'Failed to fetch forecast', error: error.message });
   }
 });
 

@@ -76,6 +76,7 @@ router.get('/categories', auth, async (req, res) => {
 
 function generateOutfitRecommendations(items, preferences, limit) {
   const { occasion, weather, style } = preferences;
+  const ensureCategory = (item) => (item.category || '').toLowerCase();
   
   // Score all items based on preferences
   const scoredItems = items.map(item => {
@@ -108,25 +109,33 @@ function generateOutfitRecommendations(items, preferences, limit) {
   });
   
   // Group by category
-  const tops = scoredItems.filter(item => 
-    (item.categories && item.categories.some(cat => cat.toLowerCase().includes('top'))) ||
-    (item.category && item.category.toLowerCase().includes('top'))
-  ).sort((a, b) => b.score - a.score);
+  const tops = scoredItems.filter(item => {
+    const cats = (item.categories || []).map(c => c.toLowerCase());
+    const cat = ensureCategory(item);
+    return cats.some(c => ['t-shirt','shirt','blouse','sweater','jacket','hoodie','tops','top'].some(k => c.includes(k))) ||
+           ['t-shirt','shirt','blouse','sweater','jacket','hoodie','tops','top'].some(k => cat.includes(k));
+  }).sort((a, b) => b.score - a.score);
   
-  const bottoms = scoredItems.filter(item => 
-    (item.categories && item.categories.some(cat => cat.toLowerCase().includes('bottom'))) ||
-    (item.category && item.category.toLowerCase().includes('bottom'))
-  ).sort((a, b) => b.score - a.score);
+  const bottoms = scoredItems.filter(item => {
+    const cats = (item.categories || []).map(c => c.toLowerCase());
+    const cat = ensureCategory(item);
+    return cats.some(c => ['jeans','trousers','shorts','skirt','leggings','joggers','bottoms','bottom'].some(k => c.includes(k))) ||
+           ['jeans','trousers','shorts','skirt','leggings','joggers','bottoms','bottom'].some(k => cat.includes(k));
+  }).sort((a, b) => b.score - a.score);
   
-  const shoes = scoredItems.filter(item => 
-    (item.categories && item.categories.some(cat => cat.toLowerCase().includes('shoe'))) ||
-    (item.category && item.category.toLowerCase().includes('shoe'))
-  ).sort((a, b) => b.score - a.score);
+  const shoes = scoredItems.filter(item => {
+    const cats = (item.categories || []).map(c => c.toLowerCase());
+    const cat = ensureCategory(item);
+    return cats.some(c => ['sneakers','heels','boots','sandals','flats','loafers','shoes','shoe'].some(k => c.includes(k))) ||
+           ['sneakers','heels','boots','sandals','flats','loafers','shoes','shoe'].some(k => cat.includes(k));
+  }).sort((a, b) => b.score - a.score);
   
-  const accessories = scoredItems.filter(item => 
-    (item.categories && item.categories.some(cat => cat.toLowerCase().includes('accessor'))) ||
-    (item.category && item.category.toLowerCase().includes('accessor'))
-  ).sort((a, b) => b.score - a.score);
+  const accessories = scoredItems.filter(item => {
+    const cats = (item.categories || []).map(c => c.toLowerCase());
+    const cat = ensureCategory(item);
+    return cats.some(c => ['bags','jewelry','belt','scarf','hat','sunglasses','accessories','accessory','umbrella'].some(k => c.includes(k))) ||
+           ['bags','jewelry','belt','scarf','hat','sunglasses','accessories','accessory','umbrella'].some(k => cat.includes(k));
+  }).sort((a, b) => b.score - a.score);
   
   // Generate outfit combinations
   const outfits = [];
@@ -141,9 +150,9 @@ function generateOutfitRecommendations(items, preferences, limit) {
     };
     
     // Select items
-    if (tops[i % tops.length]) outfit.items.push({ ...tops[i % tops.length], role: 'top' });
-    if (bottoms[i % bottoms.length]) outfit.items.push({ ...bottoms[i % bottoms.length], role: 'bottom' });
-    if (shoes[i % shoes.length]) outfit.items.push({ ...shoes[i % shoes.length], role: 'shoes' });
+    if (tops.length > 0) outfit.items.push({ ...tops[i % tops.length], role: 'top' });
+    if (bottoms.length > 0) outfit.items.push({ ...bottoms[i % bottoms.length], role: 'bottom' });
+    if (shoes.length > 0) outfit.items.push({ ...shoes[i % shoes.length], role: 'shoes' });
     
     // Add accessories (max 2)
     const accessoryCount = Math.min(2, accessories.length);
@@ -155,7 +164,13 @@ function generateOutfitRecommendations(items, preferences, limit) {
     }
     
     // Calculate metrics
-    if (outfit.items.length >= 2) {
+    // Require complete look: top, bottom, shoes, and at least 1 accessory
+    const hasTop = outfit.items.some(it => it.role === 'top');
+    const hasBottom = outfit.items.some(it => it.role === 'bottom');
+    const hasShoes = outfit.items.some(it => it.role === 'shoes');
+    const hasAccessory = outfit.items.some(it => it.role === 'accessory');
+
+    if (hasTop && hasBottom && hasShoes && hasAccessory) {
       outfit.totalScore = outfit.items.reduce((sum, item) => sum + item.score, 0) / outfit.items.length;
       outfit.confidence = calculateConfidence(outfit.items, preferences);
       outfits.push(outfit);

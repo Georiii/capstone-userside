@@ -76,6 +76,12 @@ export const API_ENDPOINTS = {
     weather: (weather: string) => `${API_BASE_URL}/api/recommendations/weather/${weather}`,
     complementary: (itemId: string) => `${API_BASE_URL}/api/recommendations/complementary/${itemId}`,
   },
+
+  // Weather
+  weather: {
+    current: (location: string) => `${API_BASE_URL}/api/weather/current?location=${encodeURIComponent(location)}`,
+    forecast: (location: string, days: number = 1) => `${API_BASE_URL}/api/weather/forecast?location=${encodeURIComponent(location)}&days=${days}`,
+  },
 };
 
 // Helper function to get full URL for any endpoint

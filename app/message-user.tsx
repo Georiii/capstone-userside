@@ -5,7 +5,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Alert,
     Image,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -32,6 +34,7 @@ export default function MessageUser() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [otherUser, setOtherUser] = useState<any>(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedReportReason, setSelectedReportReason] = useState('');
   const [otherUserTyping, setOtherUserTyping] = useState(false);
@@ -40,7 +43,7 @@ export default function MessageUser() {
   const typingTimeoutRef = useRef<any>(null);
   
   // Socket.IO context
-  const { socket, isConnected, sendMessage: sendSocketMessage, joinChat, leaveChat, sendTyping } = useSocket();
+  const { socket, sendMessage: sendSocketMessage, joinChat, leaveChat, sendTyping } = useSocket();
 
   const loadCurrentUser = async () => {
     try {
@@ -66,40 +69,74 @@ export default function MessageUser() {
 
       // Find the seller user by email
       const sellerEmailStr = Array.isArray(sellerEmail) ? sellerEmail[0] : sellerEmail;
+      const userController = new AbortController();
+      const userTimeoutId = setTimeout(() => userController.abort(), 10000); // 10 second timeout
+      
       const response = await fetch(API_ENDPOINTS.getUser(sellerEmailStr), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
+        signal: userController.signal,
       });
+      
+      clearTimeout(userTimeoutId);
 
       if (response.ok) {
         const sellerData = await response.json();
         const sellerUserId = sellerData.user._id;
         
-        // Set the other user ID for Socket.IO
+        // Set the other user information
         setOtherUserId(sellerUserId);
+        setOtherUser(sellerData.user);
 
         // Now get chat messages with the seller
+        const chatController = new AbortController();
+        const chatTimeoutId = setTimeout(() => chatController.abort(), 10000); // 10 second timeout
+        
         const chatResponse = await fetch(API_ENDPOINTS.chatMessages(sellerUserId), {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
+          signal: chatController.signal,
         });
+        
+        clearTimeout(chatTimeoutId);
 
         if (chatResponse.ok) {
           const data = await chatResponse.json();
           console.log('Loaded messages from API:', data.messages);
 
           // Transform the messages to match our Message interface
-          const transformedMessages = (data.messages || []).map((msg: any) => ({
-            id: msg._id,
-            text: msg.text,
-            senderId: msg.senderId._id || msg.senderId,
-            senderName: msg.senderId.name || 'Unknown',
-            senderAvatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-            timestamp: new Date(msg.timestamp),
-            isFromCurrentUser: msg.senderId._id === currentUser.id || msg.senderId === currentUser.id
-          }));
+          const transformedMessages = (data.messages || []).map((msg: any) => {
+            const msgSenderId = msg.senderId._id || msg.senderId;
+            // More robust user ID comparison
+            const isFromMe = msgSenderId === currentUser.id || 
+                           msgSenderId === currentUser._id ||
+                           (msg.senderId && msg.senderId._id === currentUser.id) ||
+                           (msg.senderId && msg.senderId._id === currentUser._id);
+            
+            console.log('🔍 Message transformation:', {
+              msgSenderId,
+              currentUserId: currentUser.id,
+              currentUser_id: currentUser._id,
+              isFromMe,
+              messageText: msg.text
+            });
+            
+            return {
+              id: msg._id,
+              text: msg.text,
+              senderId: msgSenderId,
+              senderName: isFromMe ? 
+                (currentUser.name || 'You') : 
+                (sellerData.user.name || sellerData.user.email?.split('@')[0] || 'Other User'),
+              senderAvatar: isFromMe ?
+                (currentUser.profileImage || 'https://randomuser.me/api/portraits/men/32.jpg') :
+                (sellerData.user.profileImage || 'https://randomuser.me/api/portraits/men/32.jpg'),
+              timestamp: new Date(msg.timestamp),
+              isFromCurrentUser: isFromMe
+            };
+          });
           setMessages(transformedMessages);
         } else {
           console.log('No messages found, setting default message');
@@ -127,8 +164,13 @@ export default function MessageUser() {
           isFromCurrentUser: false
         }]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading messages:', error);
+      
+      if (error?.name === 'AbortError') {
+        Alert.alert('Timeout', 'Request timed out. Please check your connection and try again.');
+      }
+      
       // Set default message if API fails
       setMessages([{
         id: '1',
@@ -154,14 +196,28 @@ export default function MessageUser() {
       const handleNewMessage = (data: any) => {
         console.log('📨 Received real-time message:', data);
         if (data.fromUserId === otherUserId || data.toUserId === otherUserId) {
+          // More robust user ID comparison for real-time messages
+          const isFromMe = data.fromUserId === currentUser?.id || 
+                          data.fromUserId === currentUser?._id;
+          
+          console.log('🔍 Real-time message transformation:', {
+            fromUserId: data.fromUserId,
+            currentUserId: currentUser?.id,
+            currentUser_id: currentUser?._id,
+            isFromMe,
+            messageText: data.message
+          });
+          
           const newMsg: Message = {
             id: data._id || Date.now().toString(),
             text: data.message,
             senderId: data.fromUserId,
-            senderName: data.senderName || (data.fromUserId === currentUser?.id ? 'You' : sellerId as string),
-            senderAvatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+            senderName: isFromMe ? currentUser?.name || 'You' : otherUser?.name || 'Other User',
+            senderAvatar: isFromMe ? 
+              (currentUser?.profileImage || 'https://randomuser.me/api/portraits/men/32.jpg') :
+              (otherUser?.profileImage || 'https://randomuser.me/api/portraits/men/32.jpg'),
             timestamp: new Date(data.timestamp),
-            isFromCurrentUser: data.fromUserId === currentUser?.id
+            isFromCurrentUser: isFromMe
           };
           
           setMessages(prev => {
@@ -209,12 +265,25 @@ export default function MessageUser() {
         }
       };
     }
-  }, [socket, otherUserId, currentUser, sellerId, joinChat, leaveChat]);
+  }, [socket, otherUserId, currentUser, otherUser, sellerId, joinChat, leaveChat]);
 
   useEffect(() => {
     loadCurrentUser();
     loadMessages();
   }, [loadMessages]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      // Multiple scroll attempts for better reliability
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: false });
+      }, 200);
+    }
+  }, [messages]);
 
   // Reload messages when screen comes into focus
   useFocusEffect(
@@ -232,12 +301,20 @@ export default function MessageUser() {
     const message: Message = {
       id: Date.now().toString(),
       text: messageText,
-      senderId: currentUser?.id || 'currentUser',
+      senderId: currentUser?.id || currentUser?._id || 'currentUser',
       senderName: currentUser?.name || 'You',
-      senderAvatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+      senderAvatar: currentUser?.profileImage || 'https://randomuser.me/api/portraits/men/32.jpg',
       timestamp: new Date(),
       isFromCurrentUser: true
     };
+    
+    console.log('📝 Creating sent message:', {
+      senderId: message.senderId,
+      currentUserId: currentUser?.id,
+      currentUser_id: currentUser?._id,
+      isFromCurrentUser: message.isFromCurrentUser,
+      messageText: message.text
+    });
 
     // Add message to local state immediately for better UX
     setMessages(prev => [...prev, message]);
@@ -291,7 +368,7 @@ export default function MessageUser() {
           },
           body: JSON.stringify({
             receiverId: sellerUserId,
-            text: newMessage.trim(),
+            text: messageText,
             productName: productName,
           }),
         });
@@ -404,7 +481,7 @@ export default function MessageUser() {
   const renderMessage = ({ item }: { item: Message }) => (
     <View style={[
       styles.messageContainer,
-      item.isFromCurrentUser ? styles.sentMessage : styles.receivedMessage
+      item.isFromCurrentUser ? styles.sentMessageContainer : styles.receivedMessageContainer
     ]}>
       <View style={[
         styles.messageBubble,
@@ -416,74 +493,82 @@ export default function MessageUser() {
         ]}>
           {item.text}
         </Text>
-        <View style={styles.messageFooter}>
-          <Text style={styles.messageTime}>
-            {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
-          {item.isFromCurrentUser && (
-            <Ionicons 
-              name="checkmark-done" 
-              size={12} 
-              color="#4CAF50" 
-              style={styles.messageStatus}
-            />
-          )}
-        </View>
       </View>
     </View>
   );
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={28} color="#000" />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
+        
         <View style={styles.headerCenter}>
           <Image
-            source={{ uri: 'https://randomuser.me/api/portraits/men/32.jpg' }}
+            source={{ 
+              uri: otherUser?.profileImage || 'https://randomuser.me/api/portraits/men/32.jpg' 
+            }}
             style={styles.headerAvatar}
           />
-          <Text style={styles.headerName}>{sellerId}</Text>
+          <Text style={styles.headerName}>
+            {otherUser?.name || otherUser?.email?.split('@')[0] || 'User'}
+          </Text>
         </View>
+        
         <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => setShowReportModal(true)}>
-            <Ionicons name="warning" size={24} color="#E74C3C" />
+          <TouchableOpacity onPress={() => setShowReportModal(true)} style={styles.actionButton}>
+            <Ionicons name="warning-outline" size={24} color="#FF3B30" />
           </TouchableOpacity>
-          <TouchableOpacity style={{ marginLeft: 10 }}>
-            <Ionicons name="trash" size={24} color="#E74C3C" />
+          <TouchableOpacity style={styles.actionButton}>
+            <Ionicons name="trash-outline" size={24} color="#FF3B30" />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Product Info */}
-      <View style={styles.productCard}>
-        <Image source={{ uri: productImage as string }} style={styles.productImage} />
-        <Text style={styles.productName}>{productName}</Text>
-      </View>
-
-      {/* Connection Status */}
-      {socket && (
-        <View style={[styles.connectionStatus, { backgroundColor: isConnected ? '#4CAF50' : '#FF9800' }]}>
-          <Text style={styles.connectionStatusText}>
-            {isConnected ? '🟢 Real-time chat active' : '🟡 Connecting...'}
-          </Text>
+      <View style={styles.productSection}>
+        <View style={styles.productCard}>
+          <Image source={{ uri: productImage as string }} style={styles.productImage} />
+          <View style={styles.productInfo}>
+            <Text style={styles.productName}>{productName}</Text>
+          </View>
         </View>
-      )}
+      </View>
 
       {/* Chat Messages */}
       <ScrollView 
         ref={scrollViewRef}
         style={styles.chatArea} 
-        contentContainerStyle={styles.chatContent}
-        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+        contentContainerStyle={[styles.chatContent, { flexGrow: 1 }]}
+        onContentSizeChange={() => {
+          setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50);
+        }}
+        onLayout={() => {
+          setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: false }), 100);
+        }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+        maintainVisibleContentPosition={{
+          minIndexForVisible: 0,
+          autoscrollToTopThreshold: 10,
+        }}
       >
-        {messages.map((message) => renderMessage({ item: message }))}
+        {messages.map((message) => (
+          <View key={message.id}>
+            {renderMessage({ item: message })}
+          </View>
+        ))}
         
         {/* Typing Indicator */}
         {otherUserTyping && (
-          <View style={[styles.messageContainer, styles.receivedMessage]}>
+          <View style={[styles.messageContainer, styles.receivedMessageContainer]}>
             <View style={[styles.messageBubble, styles.messageBubbleLeft, styles.typingBubble]}>
               <Text style={styles.typingText}>Typing...</Text>
               <View style={styles.typingDots}>
@@ -498,15 +583,22 @@ export default function MessageUser() {
 
       {/* Message Input */}
       <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Write a message"
-          value={newMessage}
-          onChangeText={handleTextChange}
-          multiline
-        />
+        <View style={styles.inputWrapper}>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Write a message."
+            placeholderTextColor="#999"
+            value={newMessage}
+            onChangeText={handleTextChange}
+            multiline={true}
+            textAlignVertical="center"
+            returnKeyType="send"
+            onSubmitEditing={sendMessage}
+            blurOnSubmit={false}
+          />
+        </View>
         <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
-          <Ionicons name="paper-plane" size={20} color="#FFF" />
+          <Ionicons name="send" size={20} color="#FFF" />
         </TouchableOpacity>
       </View>
 
@@ -550,154 +642,161 @@ export default function MessageUser() {
           </View>
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4C2C2',
+    backgroundColor: '#F5F5F5',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
-    backgroundColor: '#F4C2C2',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 16,
+    backgroundColor: '#F5F5F5',
+  },
+  backButton: {
+    padding: 8,
   },
   headerCenter: {
     alignItems: 'center',
+    flex: 1,
   },
   headerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginBottom: 4,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginBottom: 8,
   },
   headerName: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#000',
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  actionButton: {
+    marginLeft: 16,
+    padding: 4,
+  },
+  productSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
   productCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'white',
-    margin: 15,
     borderRadius: 12,
-    padding: 15,
+    padding: 12,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 2,
+    elevation: 2,
   },
   productImage: {
-    width: '100%',
-    height: 200,
+    width: 60,
+    height: 60,
     borderRadius: 8,
-    marginBottom: 10,
+    marginRight: 12,
+  },
+  productInfo: {
+    flex: 1,
   },
   productName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
-  },
-  productPrice: {
     fontSize: 16,
-    color: '#FF6B9D',
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: '#000',
   },
   chatArea: {
     flex: 1,
-    paddingHorizontal: 15,
+    backgroundColor: '#F5F5F5',
   },
   chatContent: {
-    paddingVertical: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 20, // Extra padding for better mobile experience
   },
   messageContainer: {
-    marginVertical: 5,
+    marginVertical: 4,
+    paddingHorizontal: 0,
+    width: '100%',
   },
-  sentMessage: {
+  sentMessageContainer: {
     alignItems: 'flex-end',
   },
-  receivedMessage: {
+  receivedMessageContainer: {
     alignItems: 'flex-start',
   },
-  messageAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 8,
-  },
   messageBubble: {
-    maxWidth: '80%',
-    padding: 12,
-    borderRadius: 18,
+    maxWidth: '85%', // Increased for better mobile experience
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    marginBottom: 4,
+    minWidth: 60, // Minimum width for small messages
   },
   messageBubbleLeft: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
+    backgroundColor: '#D1D5DB', // gray-300
+    borderTopLeftRadius: 4,
   },
   messageBubbleRight: {
-    backgroundColor: '#FF6B9D',
+    backgroundColor: '#3B82F6', // blue-500
+    borderTopRightRadius: 4,
   },
   messageText: {
     fontSize: 16,
+    lineHeight: 20,
   },
   sentText: {
-    color: 'white',
+    color: 'white', // white text on blue-500 background
   },
   receivedText: {
-    color: '#333',
+    color: '#000', // black text on gray-300 background
   },
-  messageFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 5,
-  },
-  messageTime: {
-    fontSize: 12,
-    color: '#999',
-    marginRight: 5,
-  },
-  messageStatus: {
-    marginLeft: 2,
-  },
+
   inputContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: 'white',
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#F5F5F5',
     borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    borderTopColor: '#E0E0E0',
+    minHeight: 68,
   },
-  textInput: {
+  inputWrapper: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: '#D0D0D0',
     borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    marginRight: 10,
+    backgroundColor: 'white',
+    marginRight: 8,
+  },
+  textInput: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     fontSize: 16,
+    color: '#000',
+    minHeight: 44,
+    maxHeight: 100,
   },
   sendButton: {
-    backgroundColor: '#FF6B9D',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    backgroundColor: '#333',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -770,17 +869,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  // Socket.IO real-time styles
-  connectionStatus: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  connectionStatusText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
+
   typingBubble: {
     minHeight: 40,
     justifyContent: 'center',

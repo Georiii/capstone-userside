@@ -136,11 +136,18 @@ export default function MessageBox() {
       console.log('🔍 Loading conversations...');
       console.log('🔑 Token:', token.substring(0, 20) + '...');
       
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch(API_ENDPOINTS.chatConversations, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       console.log('📡 Response status:', response.status);
       console.log('📡 Response headers:', response.headers);
@@ -171,9 +178,14 @@ export default function MessageBox() {
         Alert.alert('Error', 'Failed to load conversations. Please try again.');
         setConversations([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error loading conversations:', error);
-      Alert.alert('Error', 'Network error. Please check your connection.');
+      
+      if (error?.name === 'AbortError') {
+        Alert.alert('Timeout', 'Request timed out. Please check your connection and try again.');
+      } else {
+        Alert.alert('Error', 'Network error. Please check your connection.');
+      }
       setConversations([]);
     } finally {
       if (isRefresh) {

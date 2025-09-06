@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -39,7 +40,13 @@ export default function CombineOutfits() {
   const [selectedStyle, setSelectedStyle] = useState<string>('');
   const [useAIRecommendations, setUseAIRecommendations] = useState<boolean>(true);
   const [useWeatherAPI, setUseWeatherAPI] = useState<boolean>(false);
+  const [lastWeather, setLastWeather] = useState<any>(null);
   const [userLocation, setUserLocation] = useState<string>('');
+  
+  // Message box state for wardrobe availability
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState<boolean>(false);
+  const [missingCategories, setMissingCategories] = useState<string[]>([]);
+  const [pendingGeneration, setPendingGeneration] = useState<boolean>(false);
 
   // Available options - Updated to match actual wardrobe categories
   const topCategories = ['T-shirt', 'Formals', 'Jackets/sweatshirt', 'Shirt/camisole'];
@@ -161,6 +168,84 @@ export default function CombineOutfits() {
     }
   };
 
+  // Check wardrobe availability for selected categories
+  const checkWardrobeAvailability = (): { missing: string[], canProceed: boolean } => {
+    const missing: string[] = [];
+    
+    // Check tops
+    if (selectedTopCategory) {
+      const availableTops = wardrobeItems.filter(item => {
+        const matchesCategory = (item.categories && item.categories.includes(selectedTopCategory)) ||
+                               (item.category === selectedTopCategory);
+        const matchesWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
+        return matchesCategory && matchesWeather;
+      });
+      
+      if (availableTops.length === 0) {
+        missing.push(`No available ${selectedTopCategory.toLowerCase()} found in your wardrobe`);
+      }
+    }
+    
+    // Check bottoms
+    if (selectedBottomCategory) {
+      const availableBottoms = wardrobeItems.filter(item => {
+        const matchesCategory = (item.categories && item.categories.includes(selectedBottomCategory)) ||
+                               (item.category === selectedBottomCategory);
+        const matchesWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
+        return matchesCategory && matchesWeather;
+      });
+      
+      if (availableBottoms.length === 0) {
+        missing.push(`No available ${selectedBottomCategory.toLowerCase()} found in your wardrobe`);
+      }
+    }
+    
+    // Check shoes (always check for complete outfits)
+    const availableShoes = wardrobeItems.filter(item => {
+      const cat = (item.category || '').toLowerCase();
+      const cats = (item.categories || []).map(c => c.toLowerCase());
+      const matchCat = ['sneakers','heels','boots','sandals','flats','loafers','shoes','shoe'].some(k => cat.includes(k) || cats.some(c => c.includes(k)));
+      const matchWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
+      return matchCat && matchWeather;
+    });
+    
+    if (availableShoes.length === 0) {
+      missing.push('No available shoes found in your wardrobe');
+    }
+    
+    // Check accessories (always check for complete outfits)
+    const availableAccessories = wardrobeItems.filter(item => {
+      const cat = (item.category || '').toLowerCase();
+      const cats = (item.categories || []).map(c => c.toLowerCase());
+      const matchCat = ['bags','jewelry','belt','scarf','hat','sunglasses','accessories','accessory','umbrella'].some(k => cat.includes(k) || cats.some(c => c.includes(k)));
+      const matchWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
+      return matchCat && matchWeather;
+    });
+    
+    if (availableAccessories.length === 0) {
+      missing.push('No available accessories found in your wardrobe');
+    }
+    
+    return { missing, canProceed: missing.length === 0 };
+  };
+
+  // Handle availability modal actions
+  const handleContinueWithoutMissing = () => {
+    setShowAvailabilityModal(false);
+    setMissingCategories([]);
+    if (pendingGeneration) {
+      setPendingGeneration(false);
+      proceedWithGeneration();
+    }
+  };
+
+  const handleCancelGeneration = () => {
+    setShowAvailabilityModal(false);
+    setMissingCategories([]);
+    setPendingGeneration(false);
+    setLoading(false);
+  };
+
   // Enhanced function - Generate AI-powered outfit suggestions
   const generateOutfits = async () => {
     console.log('🤖 AI-Powered outfit generation started!');
@@ -173,6 +258,24 @@ export default function CombineOutfits() {
       useAIRecommendations 
     });
     
+    setLoading(true);
+    
+    // Check wardrobe availability first
+    const availabilityCheck = checkWardrobeAvailability();
+    if (!availabilityCheck.canProceed) {
+      setMissingCategories(availabilityCheck.missing);
+      setShowAvailabilityModal(true);
+      setPendingGeneration(true);
+      setLoading(false);
+      return;
+    }
+    
+    // Proceed with generation if all items are available
+    proceedWithGeneration();
+  };
+
+  // Separate function for the actual generation logic
+  const proceedWithGeneration = async () => {
     setLoading(true);
     
     try {
@@ -193,7 +296,7 @@ export default function CombineOutfits() {
         if (useWeatherAPI && userLocation.trim()) {
           console.log('🌤️ Fetching real-time weather for:', userLocation);
           try {
-            const weatherResponse = await fetch(`${API_ENDPOINTS.baseUrl}/api/weather/current?location=${encodeURIComponent(userLocation.trim())}`, {
+            const weatherResponse = await fetch(API_ENDPOINTS.weather.current(userLocation.trim()), {
               headers: {
                 'Authorization': `Bearer ${token}`,
               },
@@ -203,6 +306,7 @@ export default function CombineOutfits() {
               const weatherData = await weatherResponse.json();
               console.log('✅ Real-time weather data:', weatherData);
               weatherToUse = weatherData.weather;
+              setLastWeather(weatherData);
               
               Alert.alert(
                 'Weather Update',
@@ -293,14 +397,15 @@ export default function CombineOutfits() {
                   color: acc.color || '',
                   style: acc.style || ''
                 })),
-                weather: selectedWeather || aiOutfit.weatherSuitability || 'Good',
+                weather: weatherToUse || selectedWeather || aiOutfit.weatherSuitability || 'Good',
                 occasion: selectedOccasion || 'Casual',
                 confidence: aiOutfit.confidence || 0,
                 aiGenerated: true,
                 totalScore: aiOutfit.totalScore || 0,
                 styleCoherence: aiOutfit.styleCoherence || 'Good',
                 weatherSuitability: aiOutfit.weatherSuitability || 'Good',
-                occasionMatch: aiOutfit.occasionMatch || 'Good'
+                occasionMatch: aiOutfit.occasionMatch || 'Good',
+                weatherMeta: lastWeather || null
               };
             }).filter((outfit: any) => outfit !== null);
 
@@ -318,7 +423,7 @@ export default function CombineOutfits() {
         }
       }
 
-      // Fallback to manual system (your original logic)
+      // Fallback to manual system (your original logic) - ensure complete look
       console.log('🔧 Using manual combination system...');
       
       if (!selectedTopCategory || !selectedBottomCategory) {
@@ -349,13 +454,31 @@ export default function CombineOutfits() {
       }
 
       // Generate manual combinations (limited)
-      const outfitCombinations = [];
+      const shoes = wardrobeItems.filter(item => {
+        const cat = (item.category || '').toLowerCase();
+        const cats = (item.categories || []).map(c => c.toLowerCase());
+        const matchCat = ['sneakers','heels','boots','sandals','flats','loafers','shoes','shoe'].some(k => cat.includes(k) || cats.some(c => c.includes(k)));
+        const matchWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
+        return matchCat && matchWeather;
+      });
+
+      const accessories = wardrobeItems.filter(item => {
+        const cat = (item.category || '').toLowerCase();
+        const cats = (item.categories || []).map(c => c.toLowerCase());
+        const matchCat = ['bags','jewelry','belt','scarf','hat','sunglasses','accessories','accessory','umbrella'].some(k => cat.includes(k) || cats.some(c => c.includes(k)));
+        const matchWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
+        return matchCat && matchWeather;
+      });
+
+      const outfitCombinations = [] as any[];
       const maxOutfits = Math.min(6, availableTops.length * availableBottoms.length);
       
       let outfitCount = 0;
       for (let i = 0; i < availableTops.length && outfitCount < maxOutfits; i++) {
         for (let j = 0; j < availableBottoms.length && outfitCount < maxOutfits; j++) {
-          const outfit = {
+          const shoe = shoes[(i + j) % Math.max(1, shoes.length)] || null;
+          const accessory = accessories[(i + j) % Math.max(1, accessories.length)] || null;
+          const outfit: any = {
             id: `manual-outfit-${outfitCount + 1}`,
             name: `Manual Outfit ${outfitCount + 1}`,
             top: availableTops[i],
@@ -365,6 +488,8 @@ export default function CombineOutfits() {
             aiGenerated: false,
             confidence: 75 // Fixed confidence for manual combinations
           };
+          if (shoe) outfit.shoes = shoe;
+          outfit.accessories = accessory ? [accessory] : [];
           outfitCombinations.push(outfit);
           outfitCount++;
         }
@@ -593,6 +718,51 @@ export default function CombineOutfits() {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Wardrobe Availability Modal */}
+      <Modal
+        visible={showAvailabilityModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelGeneration}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.availabilityModalContent}>
+            <Text style={styles.availabilityModalTitle}>Missing Items</Text>
+            <Text style={styles.availabilityModalText}>
+              The following items are not available in your wardrobe for the selected criteria:
+            </Text>
+            
+            <View style={styles.missingItemsList}>
+              {missingCategories.map((category, index) => (
+                <Text key={index} style={styles.missingItemText}>
+                  • {category}
+                </Text>
+              ))}
+            </View>
+            
+            <Text style={styles.availabilityModalSubtext}>
+              You can continue to generate outfit suggestions without these items, or cancel to add more items to your wardrobe.
+            </Text>
+            
+            <View style={styles.availabilityModalButtons}>
+              <TouchableOpacity 
+                style={styles.availabilityCancelButton}
+                onPress={handleCancelGeneration}
+              >
+                <Text style={styles.availabilityCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.availabilityContinueButton}
+                onPress={handleContinueWithoutMissing}
+              >
+                <Text style={styles.availabilityContinueButtonText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -761,5 +931,93 @@ const styles = StyleSheet.create({
     color: '#2196F3',
     fontStyle: 'italic',
     lineHeight: 16,
+  },
+
+  // Availability Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  availabilityModalContent: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 25,
+    width: '85%',
+    maxWidth: 350,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  availabilityModalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 15,
+    color: '#FF6B9D',
+  },
+  availabilityModalText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 15,
+    color: '#333',
+    lineHeight: 22,
+  },
+  missingItemsList: {
+    marginBottom: 15,
+    paddingHorizontal: 10,
+  },
+  missingItemText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+    lineHeight: 20,
+  },
+  availabilityModalSubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 25,
+    color: '#666',
+    fontStyle: 'italic',
+    lineHeight: 20,
+  },
+  availabilityModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 15,
+  },
+  availabilityCancelButton: {
+    flex: 1,
+    backgroundColor: '#F4C2C2',
+    borderWidth: 2,
+    borderColor: '#000000',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  availabilityCancelButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#000000',
+  },
+  availabilityContinueButton: {
+    flex: 1,
+    backgroundColor: '#FF6B9D',
+    borderWidth: 2,
+    borderColor: '#000000',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  availabilityContinueButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
 });
