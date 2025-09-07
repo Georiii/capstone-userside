@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const ChatMessage = require('../models/Chat');
 const User = require('../models/User');
-const Report = require('../models/Report');
+// const Report = require('../models/Report');
 const { JWT_SECRET } = require('../config/database');
 
 const router = express.Router();
@@ -18,7 +18,7 @@ function auth(req, res, next) {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.userId = decoded.userId;
     next();
-  } catch (err) {
+  } catch (_err) {
     res.status(401).json({ message: 'Invalid or expired token.' });
   }
 }
@@ -188,6 +188,29 @@ router.put('/mark-read/:userId', auth, async (req, res) => {
   } catch (err) {
     console.error('Error marking messages as read:', err);
     res.status(500).json({ message: 'Failed to mark messages as read.', error: err.message });
+  }
+});
+
+// DELETE /api/chat/conversations/:otherUserId - Delete entire conversation with other user
+router.delete('/conversations/:otherUserId', auth, async (req, res) => {
+  try {
+    const { otherUserId } = req.params;
+    const currentUserId = req.userId;
+    
+    console.log('🗑️ DELETE request received - currentUserId:', currentUserId, 'otherUserId:', otherUserId);
+
+    const result = await ChatMessage.deleteMany({
+      $or: [
+        { senderId: currentUserId, receiverId: otherUserId },
+        { senderId: otherUserId, receiverId: currentUserId }
+      ]
+    });
+
+    console.log('🗑️ Deleted', result.deletedCount, 'messages');
+    res.json({ message: 'Conversation deleted', deletedCount: result.deletedCount });
+  } catch (err) {
+    console.error('❌ Error deleting conversation:', err);
+    res.status(500).json({ message: 'Failed to delete conversation.', error: err.message });
   }
 });
 

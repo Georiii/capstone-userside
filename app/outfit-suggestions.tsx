@@ -172,22 +172,7 @@ export default function OutfitSuggestions() {
     (router as any).push('/outfit-history');
   };
 
-  const getMetricColor = (metric: string) => {
-    switch (metric.toLowerCase()) {
-      case 'excellent':
-      case 'perfect':
-        return { color: '#4CAF50' }; // Green
-      case 'good':
-        return { color: '#2196F3' }; // Blue
-      case 'fair':
-        return { color: '#FF9800' }; // Orange
-      case 'poor':
-      case 'mixed':
-        return { color: '#F44336' }; // Red
-      default:
-        return { color: '#666' }; // Gray
-    }
-  };
+  // AI metric color helper removed (no longer used)
 
   if (loading) {
     return (
@@ -219,7 +204,7 @@ export default function OutfitSuggestions() {
 
   return (
     <View style={styles.container}>
-      {outfits[0]?.weatherMeta && (
+      {outfits[0]?.weatherMeta ? (
         <View style={styles.weatherBanner}>
           <View style={styles.weatherLeft}>
             {outfits[0].weatherMeta?.icon ? (
@@ -232,6 +217,15 @@ export default function OutfitSuggestions() {
             </Text>
           </View>
           <Text style={styles.weatherTemp}>{outfits[0].weatherMeta?.temperature}°C</Text>
+        </View>
+      ) : (
+        <View style={styles.weatherBanner}>
+          <View style={styles.weatherLeft}>
+            <Ionicons name="information-circle" size={20} color="#4B2E2B" />
+            <Text style={styles.weatherText}>
+              Weather data unavailable • Using general recommendations
+            </Text>
+          </View>
         </View>
       )}
       {/* Header */}
@@ -254,26 +248,14 @@ export default function OutfitSuggestions() {
                   {outfit.name}
                   <Text style={styles.weatherOptimizedLabel}>  • Weather-Optimized Outfit</Text>
                 </Text>
-                {outfit.aiGenerated && (
-                  <View style={styles.aiIndicator}>
-                    <Text style={styles.aiIndicatorText}>🤖 AI</Text>
-                  </View>
-                )}
+                {/* AI badge removed */}
               </View>
               <View style={styles.outfitBadge}>
                 <Text style={styles.outfitBadgeText}>{outfit.occasion}</Text>
               </View>
             </View>
 
-            {/* AI Confidence Indicators */}
-            {outfit.aiGenerated && outfit.confidence !== undefined && (
-              <View style={styles.confidenceContainer}>
-                <View style={styles.confidenceBar}>
-                  <View style={[styles.confidenceFill, { width: `${outfit.confidence}%` }]} />
-                </View>
-                <Text style={styles.confidenceText}>Confidence: {outfit.confidence}%</Text>
-              </View>
-            )}
+            {/* AI Confidence Indicators removed */}
 
             {/* Outfit Preview Images */}
             <View style={styles.outfitPreview}>
@@ -329,30 +311,38 @@ export default function OutfitSuggestions() {
                 </View>
               </View>
 
-              {outfit.shoes && (
-                <View style={styles.itemSection}>
-                  <Text style={styles.itemLabel}>Shoes:</Text>
-                  <View style={styles.itemInfo}>
-                    <Text style={styles.itemName}>{outfit.shoes.clothName}</Text>
-                    <Text style={styles.itemDescription}>
-                      {outfit.shoes.description || `${outfit.shoes.category} - ${outfit.shoes.color || 'N/A'}`}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {outfit.accessories && outfit.accessories.length > 0 && (
-                <View style={styles.itemSection}>
-                  <Text style={styles.itemLabel}>Accessories:</Text>
-                  <View style={styles.itemInfo}>
-                    {outfit.accessories.map((acc, i) => (
-                      <Text key={i} style={styles.itemDescription}>
-                        • {acc.clothName} ({acc.category})
+              <View style={styles.itemSection}>
+                <Text style={styles.itemLabel}>Shoes:</Text>
+                {outfit.shoes ? (
+                  <View style={styles.itemInfoRow}>
+                    <Image source={{ uri: outfit.shoes.imageUrl }} style={styles.inlineImage} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.itemName}>{outfit.shoes.clothName}</Text>
+                      <Text style={styles.itemDescription}>
+                        {outfit.shoes.description || `${outfit.shoes.category} - ${outfit.shoes.color || 'N/A'}`}
                       </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={styles.itemValue}>N/A</Text>
+                )}
+              </View>
+
+              <View style={styles.itemSection}>
+                <Text style={styles.itemLabel}>Accessories:</Text>
+                {outfit.accessories && outfit.accessories.length > 0 ? (
+                  <View style={styles.accessoryList}>
+                    {outfit.accessories.map((acc, i) => (
+                      <View key={i} style={styles.accessoryItem}>
+                        <Image source={{ uri: acc.imageUrl }} style={styles.accessoryImage} />
+                        <Text style={styles.itemDescription}> {acc.clothName}</Text>
+                      </View>
                     ))}
                   </View>
-                </View>
-              )}
+                ) : (
+                  <Text style={styles.itemValue}>N/A</Text>
+                )}
+              </View>
 
               {/* Weather and Occasion */}
               <View style={styles.itemSection}>
@@ -364,35 +354,7 @@ export default function OutfitSuggestions() {
                 <Text style={styles.itemValue}>{outfit.occasion}</Text>
               </View>
 
-              {/* AI Metrics */}
-              {outfit.aiGenerated && (
-                <View style={styles.aiMetricsContainer}>
-                  {outfit.styleCoherence && (
-                    <View style={styles.metricItem}>
-                      <Text style={styles.metricLabel}>Style:</Text>
-                      <Text style={[styles.metricValue, getMetricColor(outfit.styleCoherence)]}>
-                        {outfit.styleCoherence}
-                      </Text>
-                    </View>
-                  )}
-                  {outfit.weatherSuitability && (
-                    <View style={styles.metricItem}>
-                      <Text style={styles.metricLabel}>Weather:</Text>
-                      <Text style={[styles.metricValue, getMetricColor(outfit.weatherSuitability)]}>
-                        {outfit.weatherSuitability}
-                      </Text>
-                    </View>
-                  )}
-                  {outfit.occasionMatch && (
-                    <View style={styles.metricItem}>
-                      <Text style={styles.metricLabel}>Occasion:</Text>
-                      <Text style={[styles.metricValue, getMetricColor(outfit.occasionMatch)]}>
-                        {outfit.occasionMatch}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
+              {/* AI Metrics removed */}
             </View>
 
             {/* Use It Button */}
@@ -560,6 +522,44 @@ const styles = StyleSheet.create({
   },
   itemInfo: {
     flex: 1,
+  },
+  itemInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  inlineImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E5D1C0',
+  },
+  accessoryList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  accessoryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8E3D6',
+    borderWidth: 1,
+    borderColor: '#E5D1C0',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  accessoryImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: '#E5D1C0',
   },
   itemName: {
     fontSize: 16,

@@ -31,7 +31,7 @@ router.get('/current', auth, async (req, res) => {
     }
 
     // Prefer env var, otherwise use provided key (note: for dev only)
-    const WEATHER_API_KEY = process.env.WEATHERAPI_KEY || 'ec2f5a57e78f27edad800ee551507d1d';
+    const WEATHER_API_KEY = process.env.WEATHERAPI_KEY || 'd2591e28eb764ce6b1b61518250709';
 
     // If no key at all, return mock data
     if (!WEATHER_API_KEY) {
@@ -52,7 +52,7 @@ router.get('/current', auth, async (req, res) => {
 
     // Make request to WeatherAPI.com
     const axios = require('axios');
-    const weatherUrl = `http://api.weatherapi.com/v1/current.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&aqi=no`;
+    const weatherUrl = `https://api.weatherapi.com/v1/current.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&aqi=no`;
 
     console.log('🌤️ Fetching weather data (WeatherAPI) for:', location);
     const weatherResponse = await axios.get(weatherUrl, { timeout: 10000 });
@@ -157,10 +157,10 @@ router.get('/forecast', auth, async (req, res) => {
       return res.status(400).json({ message: 'Location is required', example: '/api/weather/forecast?location=Manila&days=1' });
     }
 
-    const WEATHER_API_KEY = process.env.WEATHERAPI_KEY || 'ec2f5a57e78f27edad800ee551507d1d';
+    const WEATHER_API_KEY = process.env.WEATHERAPI_KEY || 'd2591e28eb764ce6b1b61518250709';
 
     const axios = require('axios');
-    const url = `http://api.weatherapi.com/v1/forecast.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&days=${Math.max(1, Math.min(parseInt(days) || 1, 3))}&aqi=no&alerts=no`;
+    const url = `https://api.weatherapi.com/v1/forecast.json?key=${WEATHER_API_KEY}&q=${encodeURIComponent(location)}&days=${Math.max(1, Math.min(parseInt(days) || 1, 3))}&aqi=no&alerts=no`;
 
     console.log('📅 Fetching weather forecast (WeatherAPI) for:', location);
     const resp = await axios.get(url, { timeout: 10000 });

@@ -3,15 +3,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { API_ENDPOINTS } from '../config/api';
 
@@ -32,15 +32,14 @@ export default function CombineOutfits() {
   const [loading, setLoading] = useState(false);
   const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
   
-  // Enhanced filter states for AI recommendations
-  const [selectedTopCategory, setSelectedTopCategory] = useState<string>('');
-  const [selectedBottomCategory, setSelectedBottomCategory] = useState<string>('');
+  // Enhanced filter states for multi-select categories
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedWeather, setSelectedWeather] = useState<string>('');
   const [selectedOccasion, setSelectedOccasion] = useState<string>('');
   const [selectedStyle, setSelectedStyle] = useState<string>('');
-  const [useAIRecommendations, setUseAIRecommendations] = useState<boolean>(true);
+  // AI removed per requirements – always use manual generation with weather logic
   const [useWeatherAPI, setUseWeatherAPI] = useState<boolean>(false);
-  const [lastWeather, setLastWeather] = useState<any>(null);
+  const [lastWeather, setLastWeather] = useState<any>(null); // retained for potential UI use
   const [userLocation, setUserLocation] = useState<string>('');
   
   // Message box state for wardrobe availability
@@ -48,7 +47,7 @@ export default function CombineOutfits() {
   const [missingCategories, setMissingCategories] = useState<string[]>([]);
   const [pendingGeneration, setPendingGeneration] = useState<boolean>(false);
 
-  // Available options - Updated to match actual wardrobe categories
+  // Available options - exclude generic "Top" and "Bottom" from choices
   const topCategories = ['T-shirt', 'Formals', 'Jackets/sweatshirt', 'Shirt/camisole'];
   const bottomCategories = ['Jeans', 'Trousers', 'Shorts', 'Skirts', 'Leggings', 'Joggers'];
   const weatherOptions = ['Sunny', 'Rainy', 'Cold', 'Warm', 'Cloudy'];
@@ -118,13 +117,13 @@ export default function CombineOutfits() {
     }
   };
 
-  // Simple category selection - only one can be selected at a time
-  const selectTopCategory = (category: string) => {
-    setSelectedTopCategory(selectedTopCategory === category ? '' : category);
-  };
-
-  const selectBottomCategory = (category: string) => {
-    setSelectedBottomCategory(selectedBottomCategory === category ? '' : category);
+  // Allow multi-select for categories
+  const toggleCategorySelection = (category: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
   };
 
   const selectWeather = (weather: string) => {
@@ -139,28 +138,36 @@ export default function CombineOutfits() {
     setSelectedStyle(selectedStyle === style ? '' : style);
   };
 
+  // Category normalization to ensure tags match across features
+  const normalizeCategory = (raw?: string): string => {
+    const c = (raw || '').toLowerCase();
+    if (!c) return '';
+    // Tops
+    if (['top','t-shirt','shirt','camisole','blouse','tee','tank','jacket','sweater','hoodie','coat','outerwear','jackets','sweatshirt','cardigan'].some(k => c.includes(k))) return 'top';
+    // Bottoms
+    if (['bottom','jeans','trousers','short','shorts','skirt','skirts','legging','leggings','jogger','joggers','pants','slacks'].some(k => c.includes(k))) return 'bottom';
+    // Shoes
+    if (['shoe','shoes','sneaker','sneakers','heel','heels','boot','boots','sandal','sandals','flat','flats','loafer','loafers','footwear'].some(k => c.includes(k))) return 'shoes';
+    // Accessories
+    if (['accessory','accessories','bag','belt','scarf','hat','cap','sunglass','sunglasses','jewel','jewelry','umbrella'].some(k => c.includes(k))) return 'accessories';
+    return c;
+  };
+
+  // Token helpers for fuzzy subcategory matches (e.g., "t-shirt" ~ "tshirt" ~ "shirt")
+  const toToken = (value?: string) => (value || '').toLowerCase().replace(/[^a-z]/g, '');
+  const getItemTokens = (item: WardrobeItem): string[] => {
+    const list = [item.category, ...((item.categories as any) || [])].filter(Boolean) as string[];
+    return list.map(toToken);
+  };
+
   const handleWeatherAPIToggle = () => {
+    // Keep toggle but default to OFF; allow user to enable real-time weather
     if (!useWeatherAPI) {
+      setUseWeatherAPI(true);
       Alert.alert(
-        'Enable Weather API?',
-        'This will use real-time weather data to suggest appropriate outfits for your location. Weather data is provided by OpenWeatherMap.',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel'
-          },
-          {
-            text: 'Enable',
-            onPress: () => {
-              setUseWeatherAPI(true);
-              Alert.alert(
-                'Location Required',
-                'Please enter your location (e.g., "Manila, Philippines") to get weather-aware recommendations.',
-                [{ text: 'OK' }]
-              );
-            }
-          }
-        ]
+        'Location Required',
+        'Please enter your location (e.g., "Manila, Philippines") to get weather-aware recommendations.',
+        [{ text: 'OK' }]
       );
     } else {
       setUseWeatherAPI(false);
@@ -172,41 +179,59 @@ export default function CombineOutfits() {
   const checkWardrobeAvailability = (): { missing: string[], canProceed: boolean } => {
     const missing: string[] = [];
     
-    // Check tops
-    if (selectedTopCategory) {
-      const availableTops = wardrobeItems.filter(item => {
-        const matchesCategory = (item.categories && item.categories.includes(selectedTopCategory)) ||
-                               (item.category === selectedTopCategory);
-        const matchesWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
-        return matchesCategory && matchesWeather;
-      });
-      
-      if (availableTops.length === 0) {
-        missing.push(`No available ${selectedTopCategory.toLowerCase()} found in your wardrobe`);
+    // Build selection tokens (strict subcategory filtering)
+    const selectedTokens = new Set(selectedCategories.map(toToken));
+    const weatherToUseLocal = (selectedWeather || '').toLowerCase();
+    const weatherOk = (it: WardrobeItem) => {
+      const iw = (it.weather || '').toLowerCase();
+      return !weatherToUseLocal || !iw || iw === weatherToUseLocal;
+    };
+
+    // Check if we have any selected categories that are tops
+    const hasTopSelections = selectedCategories.some(cat => {
+      const normalized = normalizeCategory(cat);
+      return normalized === 'top';
+    });
+    
+    // Check if we have any selected categories that are bottoms  
+    const hasBottomSelections = selectedCategories.some(cat => {
+      const normalized = normalizeCategory(cat);
+      return normalized === 'bottom';
+    });
+
+    // Check tops (only if user selected top categories)
+    if (hasTopSelections || selectedCategories.length === 0) {
+      const topsAvailable = wardrobeItems.filter(item => {
+        const groups = [normalizeCategory(item.category), ...(((item.categories as any) || []).map(normalizeCategory))];
+        if (!groups.includes('top')) return false;
+        if (selectedTokens.size === 0) return weatherOk(item);
+        const tokens = getItemTokens(item);
+        return tokens.some(t => selectedTokens.has(t)) && weatherOk(item);
+      }).length;
+      if (topsAvailable === 0) {
+        missing.push('No available tops found in your wardrobe');
       }
     }
     
-    // Check bottoms
-    if (selectedBottomCategory) {
-      const availableBottoms = wardrobeItems.filter(item => {
-        const matchesCategory = (item.categories && item.categories.includes(selectedBottomCategory)) ||
-                               (item.category === selectedBottomCategory);
-        const matchesWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
-        return matchesCategory && matchesWeather;
-      });
-      
-      if (availableBottoms.length === 0) {
-        missing.push(`No available ${selectedBottomCategory.toLowerCase()} found in your wardrobe`);
+    // Check bottoms (only if user selected bottom categories)
+    if (hasBottomSelections || selectedCategories.length === 0) {
+      const bottomsAvailable = wardrobeItems.filter(item => {
+        const groups = [normalizeCategory(item.category), ...(((item.categories as any) || []).map(normalizeCategory))];
+        if (!groups.includes('bottom')) return false;
+        if (selectedTokens.size === 0) return weatherOk(item);
+        const tokens = getItemTokens(item);
+        return tokens.some(t => selectedTokens.has(t)) && weatherOk(item);
+      }).length;
+      if (bottomsAvailable === 0) {
+        missing.push('No available bottoms found in your wardrobe');
       }
     }
     
     // Check shoes (always check for complete outfits)
     const availableShoes = wardrobeItems.filter(item => {
-      const cat = (item.category || '').toLowerCase();
-      const cats = (item.categories || []).map(c => c.toLowerCase());
-      const matchCat = ['sneakers','heels','boots','sandals','flats','loafers','shoes','shoe'].some(k => cat.includes(k) || cats.some(c => c.includes(k)));
-      const matchWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
-      return matchCat && matchWeather;
+      const groups = [normalizeCategory(item.category), ...(((item.categories as any) || []).map(normalizeCategory))];
+      const matchCat = groups.includes('shoes');
+      return matchCat && weatherOk(item);
     });
     
     if (availableShoes.length === 0) {
@@ -215,11 +240,9 @@ export default function CombineOutfits() {
     
     // Check accessories (always check for complete outfits)
     const availableAccessories = wardrobeItems.filter(item => {
-      const cat = (item.category || '').toLowerCase();
-      const cats = (item.categories || []).map(c => c.toLowerCase());
-      const matchCat = ['bags','jewelry','belt','scarf','hat','sunglasses','accessories','accessory','umbrella'].some(k => cat.includes(k) || cats.some(c => c.includes(k)));
-      const matchWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
-      return matchCat && matchWeather;
+      const groups = [normalizeCategory(item.category), ...(((item.categories as any) || []).map(normalizeCategory))];
+      const matchCat = groups.includes('accessories');
+      return matchCat && weatherOk(item);
     });
     
     if (availableAccessories.length === 0) {
@@ -246,16 +269,14 @@ export default function CombineOutfits() {
     setLoading(false);
   };
 
-  // Enhanced function - Generate AI-powered outfit suggestions
+  // Generate outfit suggestions (manual with weather influence)
   const generateOutfits = async () => {
-    console.log('🤖 AI-Powered outfit generation started!');
+    console.log('🧩 Outfit generation started');
     console.log('🔍 Current selections:', { 
-      selectedTopCategory, 
-      selectedBottomCategory, 
+      selectedCategories, 
       selectedWeather, 
       selectedOccasion, 
-      selectedStyle, 
-      useAIRecommendations 
+      selectedStyle
     });
     
     setLoading(true);
@@ -286,189 +307,87 @@ export default function CombineOutfits() {
         return;
       }
 
-      // Use AI recommendation system if enabled
-      if (useAIRecommendations) {
-        console.log('🤖 Using AI recommendation system...');
-        
-        let weatherToUse = selectedWeather;
-        
-        // Get real-time weather if enabled
-        if (useWeatherAPI && userLocation.trim()) {
-          console.log('🌤️ Fetching real-time weather for:', userLocation);
-          try {
-            const weatherResponse = await fetch(API_ENDPOINTS.weather.current(userLocation.trim()), {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-              },
-            });
-            
-            if (weatherResponse.ok) {
-              const weatherData = await weatherResponse.json();
-              console.log('✅ Real-time weather data:', weatherData);
-              weatherToUse = weatherData.weather;
-              setLastWeather(weatherData);
-              
-              Alert.alert(
-                'Weather Update',
-                `Current weather in ${weatherData.location}: ${weatherData.description} (${weatherData.temperature}°C)\nUsing "${weatherData.weather}" for outfit recommendations.`,
-                [{ text: 'OK' }]
-              );
-            } else {
-              console.log('⚠️ Weather API failed, using manual selection');
-            }
-          } catch (weatherError) {
-            console.log('⚠️ Weather API error, using manual selection:', weatherError);
-          }
-        }
-        
-        // Build query parameters for AI recommendations
-        const params = new URLSearchParams();
-        if (weatherToUse) params.append('weather', weatherToUse);
-        if (selectedOccasion) params.append('occasion', selectedOccasion);
-        if (selectedStyle) params.append('style', selectedStyle);
-        params.append('limit', '8');
-
-        console.log('📡 Making AI recommendation request:', `${API_ENDPOINTS.baseUrl}/api/recommendations/outfit?${params.toString()}`);
-        
-        const response = await fetch(`${API_ENDPOINTS.baseUrl}/api/recommendations/outfit?${params.toString()}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ AI recommendations received:', data.recommendations?.length || 0, 'outfits');
-          
-          if (data.recommendations && data.recommendations.length > 0) {
-            // Convert AI recommendations to the format expected by outfit-suggestions.tsx
-            const formattedOutfits = data.recommendations.map((aiOutfit: any, index: number) => {
-              // Find top and bottom items from the AI recommendation
-              const topItem = aiOutfit.items?.find((item: any) => item.role === 'top');
-              const bottomItem = aiOutfit.items?.find((item: any) => item.role === 'bottom');
-              const shoesItem = aiOutfit.items?.find((item: any) => item.role === 'shoes');
-              const accessories = aiOutfit.items?.filter((item: any) => item.role === 'accessory') || [];
-
-              if (!topItem || !bottomItem) {
-                console.log('⚠️ Skipping incomplete outfit:', aiOutfit.id);
-                return null;
-              }
-
-              return {
-                id: aiOutfit.id || `ai-outfit-${index + 1}`,
-                name: `AI Outfit ${index + 1}`,
-                top: {
-                  _id: topItem._id,
-                  clothName: topItem.clothName,
-                  description: topItem.description || '',
-                  imageUrl: topItem.imageUrl,
-                  category: topItem.category || '',
-                  weather: topItem.weather || '',
-                  color: topItem.color || '',
-                  style: topItem.style || ''
-                },
-                bottom: {
-                  _id: bottomItem._id,
-                  clothName: bottomItem.clothName,
-                  description: bottomItem.description || '',
-                  imageUrl: bottomItem.imageUrl,
-                  category: bottomItem.category || '',
-                  weather: bottomItem.weather || '',
-                  color: bottomItem.color || '',
-                  style: bottomItem.style || ''
-                },
-                shoes: shoesItem ? {
-                  _id: shoesItem._id,
-                  clothName: shoesItem.clothName,
-                  description: shoesItem.description || '',
-                  imageUrl: shoesItem.imageUrl,
-                  category: shoesItem.category || '',
-                  weather: shoesItem.weather || '',
-                  color: shoesItem.color || '',
-                  style: shoesItem.style || ''
-                } : null,
-                accessories: accessories.map((acc: any) => ({
-                  _id: acc._id,
-                  clothName: acc.clothName,
-                  description: acc.description || '',
-                  imageUrl: acc.imageUrl,
-                  category: acc.category || '',
-                  weather: acc.weather || '',
-                  color: acc.color || '',
-                  style: acc.style || ''
-                })),
-                weather: weatherToUse || selectedWeather || aiOutfit.weatherSuitability || 'Good',
-                occasion: selectedOccasion || 'Casual',
-                confidence: aiOutfit.confidence || 0,
-                aiGenerated: true,
-                totalScore: aiOutfit.totalScore || 0,
-                styleCoherence: aiOutfit.styleCoherence || 'Good',
-                weatherSuitability: aiOutfit.weatherSuitability || 'Good',
-                occasionMatch: aiOutfit.occasionMatch || 'Good',
-                weatherMeta: lastWeather || null
-              };
-            }).filter((outfit: any) => outfit !== null);
-
-            if (formattedOutfits.length > 0) {
-              console.log('✅ Formatted AI outfits:', formattedOutfits.length);
-              await AsyncStorage.setItem('generatedOutfits', JSON.stringify(formattedOutfits));
-              console.log('✅ AI outfits saved to AsyncStorage');
-              (router as any).push('/outfit-suggestions');
-              setLoading(false);
-              return;
-            }
-          }
-        } else {
-          console.log('⚠️ AI recommendation failed, falling back to manual system');
-        }
-      }
-
-      // Fallback to manual system (your original logic) - ensure complete look
+      // Manual generation with weather influence
       console.log('🔧 Using manual combination system...');
+      let weatherToUse = selectedWeather;
+      let weatherMetaLocal: any = null;
+      if (useWeatherAPI && userLocation.trim()) {
+        try {
+          const weatherUrl = API_ENDPOINTS.weather.current(userLocation.trim());
+          console.log('🌤️ Fetching weather from:', weatherUrl);
+          
+          const weatherResponse = await fetch(weatherUrl, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          
+          console.log('🌤️ Weather response status:', weatherResponse.status);
+          
+          if (weatherResponse.ok) {
+            const weatherData = await weatherResponse.json();
+            console.log('🌤️ Weather data received:', weatherData);
+            weatherToUse = weatherData.weather;
+            weatherMetaLocal = weatherData;
+            setLastWeather(weatherData); // preserve for next session (used in UI banner)
+          } else {
+            const errorText = await weatherResponse.text();
+            console.log('❌ Weather API error:', weatherResponse.status, errorText);
+          }
+        } catch (error) {
+          console.log('⚠️ Weather API error:', error);
+        }
+      } else {
+        console.log('🌤️ Weather API disabled or no location provided. useWeatherAPI:', useWeatherAPI, 'userLocation:', userLocation);
+      }
       
-      if (!selectedTopCategory || !selectedBottomCategory) {
-        Alert.alert('Selection Required', 'Please select categories for tops and bottoms, or enable AI recommendations');
+      if (selectedCategories.length === 0) {
+        Alert.alert('Selection Required', 'Please select one or more categories to generate outfits');
         setLoading(false);
         return;
       }
 
-      // Your original manual logic here (simplified)
+      // Normalize categories
+      const normalize = normalizeCategory;
+      const groupOf = (it: WardrobeItem) => [it.category, ...((it.categories as any) || [])].filter(Boolean).map(normalize);
+      const weatherMatch = (it: WardrobeItem) => {
+        if (!weatherToUse) return true;
+        const iw = (it.weather || '').toLowerCase();
+        return !iw || iw === weatherToUse.toLowerCase();
+      };
+
+      const selectedTokens = new Set(selectedCategories.map(toToken));
+
+      const matchAnySelected = (item: WardrobeItem) => {
+        if (selectedTokens.size === 0) return true;
+        // Compare on tokens for robustness
+        const tokens = getItemTokens(item);
+        return tokens.some(t => selectedTokens.has(t));
+      };
+
       const availableTops = wardrobeItems.filter(item => {
-        const matchesCategory = (item.categories && item.categories.includes(selectedTopCategory)) ||
-                               (item.category === selectedTopCategory);
-        const matchesWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
-        return matchesCategory && matchesWeather;
+        const groups = groupOf(item);
+        return groups.includes('top') && matchAnySelected(item) && weatherMatch(item);
       });
       
       const availableBottoms = wardrobeItems.filter(item => {
-        const matchesCategory = (item.categories && item.categories.includes(selectedBottomCategory)) ||
-                               (item.category === selectedBottomCategory);
-        const matchesWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
-        return matchesCategory && matchesWeather;
+        const groups = groupOf(item);
+        return groups.includes('bottom') && matchAnySelected(item) && weatherMatch(item);
       });
 
       if (availableTops.length === 0 || availableBottoms.length === 0) {
-        Alert.alert('No Combinations', 'No items found for the selected criteria. Try different selections or enable AI recommendations.');
+        const missing: string[] = [];
+        if (availableTops.length === 0) missing.push('No available tops found in your wardrobe');
+        if (availableBottoms.length === 0) missing.push('No available bottoms found in your wardrobe');
+        setMissingCategories(missing);
+        setShowAvailabilityModal(true);
+        setPendingGeneration(true);
         setLoading(false);
         return;
       }
 
       // Generate manual combinations (limited)
-      const shoes = wardrobeItems.filter(item => {
-        const cat = (item.category || '').toLowerCase();
-        const cats = (item.categories || []).map(c => c.toLowerCase());
-        const matchCat = ['sneakers','heels','boots','sandals','flats','loafers','shoes','shoe'].some(k => cat.includes(k) || cats.some(c => c.includes(k)));
-        const matchWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
-        return matchCat && matchWeather;
-      });
+      const shoes = wardrobeItems.filter(item => groupOf(item).includes('shoes') && weatherMatch(item));
 
-      const accessories = wardrobeItems.filter(item => {
-        const cat = (item.category || '').toLowerCase();
-        const cats = (item.categories || []).map(c => c.toLowerCase());
-        const matchCat = ['bags','jewelry','belt','scarf','hat','sunglasses','accessories','accessory','umbrella'].some(k => cat.includes(k) || cats.some(c => c.includes(k)));
-        const matchWeather = !selectedWeather || !item.weather || item.weather === selectedWeather;
-        return matchCat && matchWeather;
-      });
+      const accessories = wardrobeItems.filter(item => groupOf(item).includes('accessories') && weatherMatch(item));
 
       const outfitCombinations = [] as any[];
       const maxOutfits = Math.min(6, availableTops.length * availableBottoms.length);
@@ -483,13 +402,27 @@ export default function CombineOutfits() {
             name: `Manual Outfit ${outfitCount + 1}`,
             top: availableTops[i],
             bottom: availableBottoms[j],
-            weather: selectedWeather || 'Moderate',
+            weather: weatherToUse || 'Moderate',
             occasion: selectedOccasion || determineOccasion(availableTops[i], availableBottoms[j]),
             aiGenerated: false,
             confidence: 75 // Fixed confidence for manual combinations
           };
+          // Shoes and accessories must always be included (fallback N/A handled in view)
           if (shoe) outfit.shoes = shoe;
-          outfit.accessories = accessory ? [accessory] : [];
+          else if (shoes.length > 0) outfit.shoes = shoes[0];
+          outfit.accessories = accessory ? [accessory] : (accessories.length > 0 ? [accessories[0]] : []);
+          if (weatherMetaLocal || lastWeather) {
+            const meta = weatherMetaLocal || lastWeather;
+            console.log('🌤️ Adding weather meta to outfit:', meta);
+            outfit.weatherMeta = {
+              location: meta.location,
+              temperature: meta.temperature,
+              description: meta.description,
+              icon: meta.weatherIcon,
+            };
+          } else {
+            console.log('🌤️ No weather meta available for outfit');
+          }
           outfitCombinations.push(outfit);
           outfitCount++;
         }
@@ -536,31 +469,17 @@ export default function CombineOutfits() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* For Tops Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>For tops</Text>
-          <View style={styles.filterRow}>
-            <View style={styles.filterColumn}>
-              <Text style={styles.filterLabel}>Categories</Text>
-              <View style={styles.checkboxGrid}>
-                {topCategories.map((category) => 
-                  renderCheckboxItem(
-                    category, 
-                    selectedTopCategory === category, 
-                    () => selectTopCategory(category)
-                  )
-                )}
-              </View>
-            </View>
-            <View style={styles.filterColumn}>
-              <Text style={styles.filterLabel}>Weather</Text>
-              <View style={styles.checkboxGrid}>
-                {weatherOptions.map((weather) => 
-                  renderCheckboxItem(
-                    weather, 
-                    selectedWeather === weather, 
-                    () => selectWeather(weather)
-                  )
-                )}
-              </View>
+          <Text style={styles.sectionTitle}>For Tops</Text>
+          <View style={styles.filterColumn}>
+            <Text style={styles.filterLabel}>Categories</Text>
+            <View style={styles.checkboxGrid}>
+              {topCategories.map((category) => 
+                renderCheckboxItem(
+                  category, 
+                  selectedCategories.includes(category), 
+                  () => toggleCategorySelection(category)
+                )
+              )}
             </View>
           </View>
         </View>
@@ -568,140 +487,82 @@ export default function CombineOutfits() {
         {/* For Bottoms Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>For Bottoms</Text>
-          <View style={styles.filterRow}>
-            <View style={styles.filterColumn}>
-              <Text style={styles.filterLabel}>Categories</Text>
-              <View style={styles.checkboxGrid}>
-                {bottomCategories.map((category) => 
-                  renderCheckboxItem(
-                    category, 
-                    selectedBottomCategory === category, 
-                    () => selectBottomCategory(category)
-                  )
-                )}
-              </View>
-            </View>
-            <View style={styles.filterColumn}>
-              <Text style={styles.filterLabel}>Weather</Text>
-              <View style={styles.checkboxGrid}>
-                {weatherOptions.map((weather) => 
-                  renderCheckboxItem(
-                    weather, 
-                    selectedWeather === weather, 
-                    () => selectWeather(weather)
-                  )
-                )}
-              </View>
+          <View style={styles.filterColumn}>
+            <Text style={styles.filterLabel}>Categories</Text>
+            <View style={styles.checkboxGrid}>
+              {bottomCategories.map((category) => 
+                renderCheckboxItem(
+                  category, 
+                  selectedCategories.includes(category), 
+                  () => toggleCategorySelection(category)
+                )
+              )}
             </View>
           </View>
         </View>
 
-        {/* AI Toggle Section */}
+        {/* AI section removed */}
+
+        {/* Weather API Section - Always available */}
         <View style={styles.section}>
           <View style={styles.aiToggleContainer}>
-            <Text style={styles.sectionTitle}>🤖 AI-Powered Recommendations</Text>
+            <Text style={styles.sectionTitle}>🌤️ Real-time Weather</Text>
             <TouchableOpacity 
-              style={[styles.aiToggle, useAIRecommendations && styles.aiToggleActive]}
-              onPress={() => setUseAIRecommendations(!useAIRecommendations)}
+              style={[styles.aiToggle, useWeatherAPI && styles.aiToggleActive]}
+              onPress={handleWeatherAPIToggle}
             >
-              <Text style={[styles.aiToggleText, useAIRecommendations && styles.aiToggleTextActive]}>
-                {useAIRecommendations ? 'ON' : 'OFF'}
+              <Text style={[styles.aiToggleText, useWeatherAPI && styles.aiToggleTextActive]}>
+                {useWeatherAPI ? 'ON' : 'OFF'}
               </Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.aiDescription}>
-            {useAIRecommendations 
-              ? 'AI will create smart outfit combinations based on your preferences and wardrobe items.'
-              : 'Manual mode: Select specific categories to generate basic combinations.'
-            }
-          </Text>
+          {useWeatherAPI && (
+            <View style={styles.locationInputContainer}>
+              <Text style={styles.locationLabel}>Your Location:</Text>
+              <TextInput
+                style={styles.locationInput}
+                placeholder="e.g., Manila, Philippines"
+                value={userLocation}
+                onChangeText={setUserLocation}
+                placeholderTextColor="#999"
+              />
+              <Text style={styles.locationHint}>
+                Weather will influence tops, bottoms, shoes and accessories.
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Weather API Section - Only show if AI is enabled */}
-        {useAIRecommendations && (
-          <View style={styles.section}>
-            <View style={styles.aiToggleContainer}>
-              <Text style={styles.sectionTitle}>🌤️ Real-time Weather</Text>
-              <TouchableOpacity 
-                style={[styles.aiToggle, useWeatherAPI && styles.aiToggleActive]}
-                onPress={handleWeatherAPIToggle}
-              >
-                <Text style={[styles.aiToggleText, useWeatherAPI && styles.aiToggleTextActive]}>
-                  {useWeatherAPI ? 'ON' : 'OFF'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {useWeatherAPI && (
-              <View style={styles.locationInputContainer}>
-                <Text style={styles.locationLabel}>Your Location:</Text>
-                <TextInput
-                  style={styles.locationInput}
-                  placeholder="e.g., Manila, Philippines"
-                  value={userLocation}
-                  onChangeText={setUserLocation}
-                  placeholderTextColor="#999"
-                />
-                <Text style={styles.locationHint}>
-                  💡 Weather API will automatically select the best weather condition for your outfits
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* AI Options - Only show if AI is enabled */}
-        {useAIRecommendations && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>AI Preferences</Text>
-            
-            {/* Occasion Selection */}
-            <View style={styles.filterRow}>
-              <View style={styles.filterColumn}>
-                <Text style={styles.filterLabel}>Occasion</Text>
-                <View style={styles.checkboxGrid}>
-                  {occasionOptions.slice(0, 4).map((occasion) => 
-                    renderCheckboxItem(
-                      occasion, 
-                      selectedOccasion === occasion, 
-                      () => selectOccasion(occasion)
-                    )
-                  )}
-                </View>
-              </View>
-              <View style={styles.filterColumn}>
-                <Text style={styles.filterLabel}>Style</Text>
-                <View style={styles.checkboxGrid}>
-                  {styleOptions.slice(0, 4).map((style) => 
-                    renderCheckboxItem(
-                      style, 
-                      selectedStyle === style, 
-                      () => selectStyle(style)
-                    )
-                  )}
-                </View>
+        {/* Preferences Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Preferences</Text>
+          <View style={styles.filterRow}>
+            <View style={styles.filterColumn}>
+              <Text style={styles.filterLabel}>Occasion</Text>
+              <View style={styles.checkboxGrid}>
+                {occasionOptions.slice(0, 4).map((occasion) => 
+                  renderCheckboxItem(
+                    occasion, 
+                    selectedOccasion === occasion, 
+                    () => selectOccasion(occasion)
+                  )
+                )}
               </View>
             </View>
-
-            {/* Weather for AI */}
-            <View style={styles.filterRow}>
-              <View style={styles.filterColumn}>
-                <Text style={styles.filterLabel}>Weather</Text>
-                <View style={styles.checkboxGrid}>
-                  {weatherOptions.map((weather) => 
-                    renderCheckboxItem(
-                      weather, 
-                      selectedWeather === weather, 
-                      () => selectWeather(weather)
-                    )
-                  )}
-                </View>
-              </View>
-              <View style={styles.filterColumn}>
-                <Text style={styles.aiHint}>💡 Tip: AI works best with weather and occasion selected!</Text>
+            <View style={styles.filterColumn}>
+              <Text style={styles.filterLabel}>Style</Text>
+              <View style={styles.checkboxGrid}>
+                {styleOptions.slice(0, 4).map((style) => 
+                  renderCheckboxItem(
+                    style, 
+                    selectedStyle === style, 
+                    () => selectStyle(style)
+                  )
+                )}
               </View>
             </View>
           </View>
-        )}
+        </View>
 
         {/* Confirm Button */}
         <TouchableOpacity 
@@ -712,9 +573,7 @@ export default function CombineOutfits() {
           {loading ? (
             <ActivityIndicator size="small" color="#000000" />
           ) : (
-            <Text style={styles.confirmButtonText}>
-              {useAIRecommendations ? '🤖 Generate AI Outfits' : '🔧 Generate Manual Outfits'}
-            </Text>
+            <Text style={styles.confirmButtonText}>Generate Outfit Suggestions</Text>
           )}
         </TouchableOpacity>
       </ScrollView>

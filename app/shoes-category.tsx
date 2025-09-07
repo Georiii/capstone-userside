@@ -159,7 +159,8 @@ export default function ShoesCategory() {
                       imageUrl: item.imageUrl,
                       clothName: item.clothName,
                       description: item.description,
-                      occasion: (item.occasions && item.occasions[0]) || '',
+                      occasion: (item.occasions && item.occasions[0]) || item.occasion || '',
+                      weather: item.weather || '',
                       category: categoryType,
                     }
                   })}

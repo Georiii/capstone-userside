@@ -36,6 +36,7 @@ export default function MessageUser() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [otherUser, setOtherUser] = useState<any>(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedReportReason, setSelectedReportReason] = useState('');
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const [otherUserId, setOtherUserId] = useState<string | null>(null);
@@ -470,6 +471,50 @@ export default function MessageUser() {
     }
   };
 
+  const deleteConversation = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const otherId = (otherUser && (otherUser as any)._id) || otherUserId;
+      console.log('🗑️ Attempting to delete conversation with user ID:', otherId);
+      
+      if (!otherId) { 
+        console.log('❌ No other user ID found');
+        setShowDeleteModal(false); 
+        return; 
+      }
+      
+      const deleteUrl = API_ENDPOINTS.chatDeleteConversation(otherId as string);
+      console.log('🌐 Delete URL:', deleteUrl);
+      
+      const resp = await fetch(deleteUrl, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      
+      console.log('📡 Delete response status:', resp.status);
+      
+      if (resp.ok) {
+        console.log('✅ Conversation deleted successfully');
+        setShowDeleteModal(false);
+        setMessages([]);
+        // Use replace to prevent going back to deleted conversation
+        setTimeout(() => {
+          console.log('🔄 Navigating back to message-box');
+          router.replace('/message-box');
+        }, 100);
+      } else {
+        const errorText = await resp.text();
+        console.log('❌ Failed to delete conversation, status:', resp.status, 'error:', errorText);
+        setShowDeleteModal(false);
+        Alert.alert('Error', 'Failed to delete conversation');
+      }
+    } catch (error) {
+      console.log('💥 Delete conversation error:', error);
+      setShowDeleteModal(false);
+      Alert.alert('Error', 'Failed to delete conversation');
+    }
+  };
+
   const reportReasons = [
     'Seller scammed me by requesting payment outside the app and never shipped the item.',
     'Seller falsely claimed the item was authentic when it wasn\'t.',
@@ -525,7 +570,7 @@ export default function MessageUser() {
           <TouchableOpacity onPress={() => setShowReportModal(true)} style={styles.actionButton}>
             <Ionicons name="warning-outline" size={24} color="#FF3B30" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => setShowDeleteModal(true)}>
             <Ionicons name="trash-outline" size={24} color="#FF3B30" />
           </TouchableOpacity>
         </View>
@@ -639,6 +684,36 @@ export default function MessageUser() {
             <TouchableOpacity style={styles.submitButton} onPress={submitReport}>
               <Text style={styles.submitButtonText}>Submit</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Conversation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.reportContent}>
+            <View style={styles.reportHeader}>
+              <Text style={styles.reportTitle}>Delete Conversation</Text>
+              <TouchableOpacity onPress={() => setShowDeleteModal(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontSize: 16, color: '#333', marginBottom: 16 }}>
+              Are you sure you want to delete this conversation?
+            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+              <TouchableOpacity style={styles.deleteCancelButton} onPress={() => setShowDeleteModal(false)}>
+                <Text style={styles.deleteCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteConfirmButton} onPress={deleteConversation}>
+                <Text style={styles.deleteConfirmButtonText}>Yes</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -862,6 +937,30 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     marginTop: 15,
+  },
+  deleteCancelButton: {
+    backgroundColor: '#F4C2C2',
+    borderWidth: 1,
+    borderColor: '#4B2E2B',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  deleteCancelButtonText: {
+    color: '#4B2E2B',
+    fontWeight: '600',
+  },
+  deleteConfirmButton: {
+    backgroundColor: '#FF6B9D',
+    borderWidth: 1,
+    borderColor: '#4B2E2B',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  deleteConfirmButtonText: {
+    color: '#fff',
+    fontWeight: '700',
   },
   submitButtonText: {
     color: 'white',

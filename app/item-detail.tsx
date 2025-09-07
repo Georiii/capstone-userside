@@ -8,12 +8,13 @@ import { API_ENDPOINTS } from '../config/api';
 export default function ItemDetail() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { itemId, imageUrl, clothName, description, occasion, category } = params;
+  const { itemId, imageUrl, clothName, description, occasion, category, weather } = params;
   const itemIdStr = itemId as string;
   const imageSrc = Array.isArray(imageUrl) ? imageUrl[0] : imageUrl;
   const clothNameStr = Array.isArray(clothName) ? clothName[0] : clothName;
   const descriptionStr = Array.isArray(description) ? description[0] : description;
   const occasionStr = Array.isArray(occasion) ? occasion[0] : occasion;
+  const weatherStr = Array.isArray(weather) ? weather[0] : weather;
   const categoryStr = Array.isArray(category) ? category[0] : category;
   const [loading, setLoading] = useState(false);
   const [postSuccess, setPostSuccess] = useState(false);
@@ -232,10 +233,18 @@ export default function ItemDetail() {
         {/* Details */}
         <Text style={styles.clothName}>{clothNameStr}</Text>
         <Text style={styles.description}>{descriptionStr}</Text>
-        <View style={styles.occasionContainer}>
-          <Text style={styles.occasionLabel}>Occasion</Text>
-          <View style={styles.occasionPill}>
-            <Text style={styles.occasionText}>{occasionStr}</Text>
+        <View style={styles.tagRow}>
+          <View style={styles.tagBlock}>
+            <Text style={styles.tagLabel}>Occasion</Text>
+            <View style={styles.tagPill}>
+              <Text style={styles.tagText}>{occasionStr || 'N/A'}</Text>
+            </View>
+          </View>
+          <View style={styles.tagBlock}>
+            <Text style={styles.tagLabel}>Weather</Text>
+            <View style={styles.tagPill}>
+              <Text style={styles.tagText}>{weatherStr || 'N/A'}</Text>
+            </View>
           </View>
         </View>
 
@@ -329,6 +338,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 6, alignSelf: 'flex-start',
   },
   occasionText: { fontSize: 15, color: '#222' },
+  tagRow: { flexDirection: 'row', justifyContent: 'flex-start', gap: 16, marginBottom: 16 },
+  tagBlock: { },
+  tagLabel: { fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
+  tagPill: {
+    backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: '#222',
+    paddingHorizontal: 16, paddingVertical: 6, alignSelf: 'flex-start',
+  },
+  tagText: { fontSize: 15, color: '#222' },
   marketButton: {
     backgroundColor: '#FFE0B2', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24,
     alignSelf: 'flex-end', marginTop: 20,
