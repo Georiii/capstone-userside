@@ -42,6 +42,17 @@ const userSchema = new mongoose.Schema({
     measurementLastUpdated: { type: Date }
   },
   
+  // Account Status and Restrictions
+  accountStatus: {
+    isActive: { type: Boolean, default: true },
+    isRestricted: { type: Boolean, default: false },
+    restrictionReason: { type: String },
+    restrictionStartDate: { type: Date },
+    restrictionEndDate: { type: Date },
+    restrictionDuration: { type: String }, // e.g., '1 day', '10 days', '20 days', '1 month'
+    restrictedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' } // Admin who applied restriction
+  },
+  
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

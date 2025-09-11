@@ -51,7 +51,34 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
     
-    console.log('Password valid, generating token');
+    console.log('Password valid, checking account status');
+    
+    // Check if account is restricted
+    if (user.accountStatus && user.accountStatus.isRestricted) {
+      const now = new Date();
+      const restrictionEndDate = new Date(user.accountStatus.restrictionEndDate);
+      
+      if (now < restrictionEndDate) {
+        // Account is still restricted
+        const daysRemaining = Math.ceil((restrictionEndDate - now) / (1000 * 60 * 60 * 24));
+        return res.status(403).json({ 
+          message: `Your account was suspended for ${user.accountStatus.restrictionDuration}.`,
+          restrictionReason: user.accountStatus.restrictionReason,
+          daysRemaining: daysRemaining,
+          restrictionEndDate: restrictionEndDate
+        });
+      } else {
+        // Restriction period has expired, reactivate account
+        user.accountStatus.isRestricted = false;
+        user.accountStatus.restrictionEndDate = null;
+        user.accountStatus.restrictionDuration = null;
+        user.accountStatus.restrictionReason = null;
+        await user.save();
+        console.log('Account restriction expired, account reactivated');
+      }
+    }
+    
+    console.log('Generating token');
     const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
     console.log('Login successful for user:', user.email);
     res.json({ token, user: { id: user._id, name: user.name, username: user.username, email: user.email } });

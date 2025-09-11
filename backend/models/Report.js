@@ -15,6 +15,11 @@ const reportSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
+  evidencePhotos: [{
+    url: { type: String, required: true },
+    filename: { type: String, required: true },
+    uploadedAt: { type: Date, default: Date.now }
+  }],
   timestamp: { 
     type: Date, 
     default: Date.now 

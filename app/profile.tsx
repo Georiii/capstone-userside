@@ -60,7 +60,7 @@ export default function Profile() {
         <View style={styles.headerRight}>
           <Ionicons name="trophy-outline" size={28} color="#B8860B" style={{ marginRight: 16 }} />
           <TouchableOpacity onPress={() => router.push('/settings')}>
-            <Ionicons name="settings-outline" size={28} color="#4B2E2B" />
+          <Ionicons name="settings-outline" size={28} color="#4B2E2B" />
           </TouchableOpacity>
         </View>
       </View>

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -38,6 +39,7 @@ export default function MessageUser() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedReportReason, setSelectedReportReason] = useState('');
+  const [evidencePhotos, setEvidencePhotos] = useState<string[]>([]);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const [otherUserId, setOtherUserId] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -422,6 +424,30 @@ export default function MessageUser() {
     }
   };
 
+  const pickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setEvidencePhotos(prev => [...prev, result.assets[0].uri]);
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setEvidencePhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
   const submitReport = async () => {
     if (!selectedReportReason) {
       Alert.alert('Error', 'Please select a reason for reporting');
@@ -430,18 +456,66 @@ export default function MessageUser() {
 
     try {
       const token = await AsyncStorage.getItem('token');
+      console.log('Token retrieved:', token ? 'Token exists' : 'No token found');
+      
+      if (!token) {
+        Alert.alert('Error', 'Please log in to submit a report');
+        return;
+      }
 
       // Find the seller user by email
       const sellerEmailStr = Array.isArray(sellerEmail) ? sellerEmail[0] : sellerEmail;
+      console.log('Looking up user with email:', sellerEmailStr);
+      
       const userResponse = await fetch(API_ENDPOINTS.getUser(sellerEmailStr), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
+      console.log('User lookup response status:', userResponse.status);
+      
       if (userResponse.ok) {
         const sellerData = await userResponse.json();
+        console.log('Seller data:', sellerData);
         const sellerUserId = sellerData.user._id;
+        console.log('Seller user ID:', sellerUserId);
+
+        // Upload photos to Cloudinary if any
+        let uploadedPhotos = [];
+        if (evidencePhotos.length > 0) {
+          for (const photoUri of evidencePhotos) {
+            const formData = new FormData();
+            formData.append('file', {
+              uri: photoUri,
+              type: 'image/jpeg',
+              name: 'evidence.jpg',
+            } as any);
+            formData.append('upload_preset', 'glamora_wardrobe');
+
+            const uploadResponse = await fetch('https://api.cloudinary.com/v1_1/dq8wzujfj/image/upload', {
+              method: 'POST',
+              body: formData,
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+            });
+
+            if (uploadResponse.ok) {
+              const uploadResult = await uploadResponse.json();
+              uploadedPhotos.push({
+                url: uploadResult.secure_url,
+                filename: uploadResult.public_id,
+              });
+            }
+          }
+        }
+
+        console.log('Submitting report with data:', {
+          reportedUserId: sellerUserId,
+          reason: selectedReportReason,
+          evidencePhotos: uploadedPhotos,
+        });
 
         const response = await fetch(API_ENDPOINTS.report, {
           method: 'POST',
@@ -452,18 +526,28 @@ export default function MessageUser() {
           body: JSON.stringify({
             reportedUserId: sellerUserId,
             reason: selectedReportReason,
+            evidencePhotos: uploadedPhotos,
           }),
         });
 
+        console.log('Report submission response status:', response.status);
+        
         if (response.ok) {
+          const result = await response.json();
+          console.log('Report submission success:', result);
           Alert.alert('Success', 'Report submitted successfully');
           setShowReportModal(false);
           setSelectedReportReason('');
+          setEvidencePhotos([]);
         } else {
-          Alert.alert('Error', 'Failed to submit report');
+          const errorData = await response.json();
+          console.log('Report submission error:', errorData);
+          Alert.alert('Error', `Failed to submit report: ${errorData.message || 'Unknown error'}`);
         }
       } else {
-        Alert.alert('Error', 'Failed to find user to report');
+        const errorData = await userResponse.json();
+        console.log('User lookup error:', errorData);
+        Alert.alert('Error', `Failed to find user to report: ${errorData.message || 'User not found'}`);
       }
     } catch (error) {
       console.error('Error submitting report:', error);
@@ -516,11 +600,26 @@ export default function MessageUser() {
   };
 
   const reportReasons = [
-    'Seller scammed me by requesting payment outside the app and never shipped the item.',
-    'Seller falsely claimed the item was authentic when it wasn\'t.',
-    'Seller made inappropriate/unprofessional comments during the transaction.',
-    'Seller used misleading pricing to bait users.',
-    'Seller is using pressure tactics to rush payment outside safe channels.'
+    {
+      title: 'Scams',
+      description: 'Seller scammed me by requesting payment outside the app and never shipped the item.'
+    },
+    {
+      title: 'Fake Product Claim',
+      description: 'Seller falsely claimed the item was authentic when it wasn\'t.'
+    },
+    {
+      title: 'Inappropriate Chat Behavior',
+      description: 'Seller made inappropriate/unprofessional comments during the transaction.'
+    },
+    {
+      title: 'Bait-and-Switch Listing',
+      description: 'Seller used misleading pricing to bait users.'
+    },
+    {
+      title: 'Pressure Tactics / Rushing Payment',
+      description: 'Seller is using pressure tactics to rush payment outside safe channels.'
+    }
   ];
 
   const renderMessage = ({ item }: { item: Message }) => (
@@ -657,29 +756,59 @@ export default function MessageUser() {
         <View style={styles.modalOverlay}>
           <View style={styles.reportModal}>
             <View style={styles.reportHeader}>
-              <Text style={styles.reportTitle}>Report user</Text>
               <TouchableOpacity onPress={() => setShowReportModal(false)}>
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
+              <Text style={styles.reportTitle}>Report user</Text>
             </View>
 
-            {reportReasons.map((reason, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.reportOption}
-                onPress={() => setSelectedReportReason(reason)}
-              >
-                <View style={[
-                  styles.checkbox,
-                  selectedReportReason === reason && styles.checkboxSelected
-                ]}>
-                  {selectedReportReason === reason && (
-                    <Ionicons name="checkmark" size={16} color="#FFF" />
-                  )}
-                </View>
-                <Text style={styles.reportReason}>{reason}</Text>
+            <View style={styles.reportOptionsContainer}>
+              {reportReasons.map((reason, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.reportOption}
+                  onPress={() => setSelectedReportReason(reason.description)}
+                >
+                  <View style={[
+                    styles.checkbox,
+                    selectedReportReason === reason.description && styles.checkboxSelected
+                  ]}>
+                    {selectedReportReason === reason.description && (
+                      <Ionicons name="checkmark" size={16} color="#FFF" />
+                    )}
+                  </View>
+                  <View style={styles.reportTextContainer}>
+                    <Text style={styles.reportTitleText}>{reason.title}</Text>
+                    <Text style={styles.reportDescription}>{reason.description}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Photo Evidence Section */}
+            <View style={styles.photoEvidenceSection}>
+              <Text style={styles.photoEvidenceTitle}>Add Evidence Photos (Optional)</Text>
+              <TouchableOpacity style={styles.addPhotoButton} onPress={pickImage}>
+                <Ionicons name="camera" size={20} color="#007AFF" />
+                <Text style={styles.addPhotoText}>Add Photo</Text>
               </TouchableOpacity>
-            ))}
+              
+              {evidencePhotos.length > 0 && (
+                <View style={styles.photosContainer}>
+                  {evidencePhotos.map((photo, index) => (
+                    <View key={index} style={styles.photoItem}>
+                      <Image source={{ uri: photo }} style={styles.photoPreview} />
+                      <TouchableOpacity 
+                        style={styles.removePhotoButton} 
+                        onPress={() => removePhoto(index)}
+                      >
+                        <Ionicons name="close-circle" size={20} color="#FF3B30" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
 
             <TouchableOpacity style={styles.submitButton} onPress={submitReport}>
               <Text style={styles.submitButtonText}>Submit</Text>
@@ -882,10 +1011,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reportModal: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 0,
+    margin: 20,
+    maxHeight: '80%',
+    width: '90%',
+    alignSelf: 'center',
   },
   reportContent: {
     backgroundColor: 'white',
@@ -896,35 +1028,59 @@ const styles = StyleSheet.create({
   },
   reportHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   reportTitle: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 15,
+    color: '#333',
+    flex: 1,
     textAlign: 'center',
+    marginRight: 24, // To center the title (compensate for close button)
+  },
+  reportOptionsContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   reportOption: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 15,
+    paddingVertical: 16,
+    paddingHorizontal: 0,
   },
   checkbox: {
     width: 20,
     height: 20,
-    borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#DDD',
-    marginRight: 10,
-    marginTop: 2,
-    justifyContent: 'center',
+    borderColor: '#ddd',
+    borderRadius: 4,
+    marginRight: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
   },
   checkboxSelected: {
-    backgroundColor: '#FFA500',
-    borderColor: '#FFA500',
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  reportTextContainer: {
+    flex: 1,
+  },
+  reportTitleText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  reportDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
   },
   reportReason: {
     flex: 1,
@@ -933,10 +1089,14 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   submitButton: {
-    backgroundColor: '#FF6B9D',
-    paddingVertical: 12,
+    backgroundColor: '#FFE8C8',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
     borderRadius: 8,
-    marginTop: 15,
+    alignItems: 'center',
+    margin: 20,
+    borderWidth: 1,
+    borderColor: '#D4A574',
   },
   deleteCancelButton: {
     backgroundColor: '#F4C2C2',
@@ -963,10 +1123,60 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   submitButtonText: {
-    color: 'white',
+    color: '#8B4513',
     textAlign: 'center',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
+  },
+  photoEvidenceSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  photoEvidenceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  addPhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  addPhotoText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  photosContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  photoItem: {
+    position: 'relative',
+  },
+  photoPreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+  },
+  removePhotoButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: 'white',
+    borderRadius: 10,
   },
 
   typingBubble: {

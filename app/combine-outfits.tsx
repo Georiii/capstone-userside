@@ -290,7 +290,7 @@ export default function CombineOutfits() {
       setLoading(false);
       return;
     }
-    
+
     // Proceed with generation if all items are available
     proceedWithGeneration();
   };
@@ -470,12 +470,12 @@ export default function CombineOutfits() {
         {/* For Tops Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>For Tops</Text>
-          <View style={styles.filterColumn}>
-            <Text style={styles.filterLabel}>Categories</Text>
-            <View style={styles.checkboxGrid}>
-              {topCategories.map((category) => 
-                renderCheckboxItem(
-                  category, 
+            <View style={styles.filterColumn}>
+              <Text style={styles.filterLabel}>Categories</Text>
+              <View style={styles.checkboxGrid}>
+                {topCategories.map((category) => 
+                  renderCheckboxItem(
+                    category, 
                   selectedCategories.includes(category), 
                   () => toggleCategorySelection(category)
                 )
@@ -487,12 +487,12 @@ export default function CombineOutfits() {
         {/* For Bottoms Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>For Bottoms</Text>
-          <View style={styles.filterColumn}>
-            <Text style={styles.filterLabel}>Categories</Text>
-            <View style={styles.checkboxGrid}>
-              {bottomCategories.map((category) => 
-                renderCheckboxItem(
-                  category, 
+            <View style={styles.filterColumn}>
+              <Text style={styles.filterLabel}>Categories</Text>
+              <View style={styles.checkboxGrid}>
+                {bottomCategories.map((category) => 
+                  renderCheckboxItem(
+                    category, 
                   selectedCategories.includes(category), 
                   () => toggleCategorySelection(category)
                 )

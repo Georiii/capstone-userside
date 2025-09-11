@@ -24,10 +24,16 @@ function auth(req, res, next) {
 // POST /api/report - Submit a user report
 router.post('/', auth, async (req, res) => {
   try {
-    const { reportedUserId, reason } = req.body;
+    console.log('Report submission request body:', req.body);
+    console.log('Report submission headers:', req.headers);
+    
+    const { reportedUserId, reason, evidencePhotos } = req.body;
     const reporterId = req.userId;
 
+    console.log('Parsed data:', { reportedUserId, reason, evidencePhotos, reporterId });
+
     if (!reportedUserId || !reason) {
+      console.log('Missing required fields:', { reportedUserId, reason });
       return res.status(400).json({ message: 'reportedUserId and reason are required.' });
     }
 
@@ -57,6 +63,7 @@ router.post('/', auth, async (req, res) => {
       reporterId,
       reportedUserId,
       reason,
+      evidencePhotos: evidencePhotos || [],
       timestamp: new Date(),
       status: 'pending'
     });
@@ -78,6 +85,90 @@ router.post('/', auth, async (req, res) => {
 });
 
 // GET /api/report/list - Get all reports (admin only)
+router.get('/list', auth, async (req, res) => {
+  try {
+    // Check if user is admin (you might want to add admin role check here)
+    const reports = await Report.find()
+      .populate('reporterId', 'name email')
+      .populate('reportedUserId', 'name email')
+      .sort({ timestamp: -1 });
+
+    res.json({ reports });
+  } catch (err) {
+    console.error('Error fetching reports:', err);
+    res.status(500).json({ message: 'Failed to fetch reports.', error: err.message });
+  }
+});
+
+// PUT /api/report/:id/restrict - Restrict a user account (admin only)
+router.put('/:id/restrict', auth, async (req, res) => {
+  try {
+    const { restrictionDuration, restrictionReason } = req.body;
+    const reportId = req.params.id;
+
+    if (!restrictionDuration || !restrictionReason) {
+      return res.status(400).json({ message: 'restrictionDuration and restrictionReason are required.' });
+    }
+
+    // Get the report
+    const report = await Report.findById(reportId).populate('reportedUserId');
+    if (!report) {
+      return res.status(404).json({ message: 'Report not found.' });
+    }
+
+    const reportedUser = report.reportedUserId;
+    const now = new Date();
+    
+    // Calculate restriction end date based on duration
+    let restrictionEndDate;
+    switch (restrictionDuration) {
+      case '1 day':
+        restrictionEndDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        break;
+      case '10 days':
+        restrictionEndDate = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
+        break;
+      case '20 days':
+        restrictionEndDate = new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000);
+        break;
+      case '1 month':
+        restrictionEndDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        return res.status(400).json({ message: 'Invalid restriction duration.' });
+    }
+
+    // Update user account status
+    reportedUser.accountStatus = {
+      isActive: true,
+      isRestricted: true,
+      restrictionReason: restrictionReason,
+      restrictionStartDate: now,
+      restrictionEndDate: restrictionEndDate,
+      restrictionDuration: restrictionDuration,
+      restrictedBy: req.userId
+    };
+
+    await reportedUser.save();
+
+    // Update report status
+    report.status = 'resolved';
+    report.resolvedAt = now;
+    report.adminNotes = `User restricted for ${restrictionDuration}. Reason: ${restrictionReason}`;
+    await report.save();
+
+    res.json({ 
+      message: 'User account restricted successfully.', 
+      restrictionEndDate: restrictionEndDate,
+      restrictionDuration: restrictionDuration
+    });
+  } catch (err) {
+    console.error('Error restricting user:', err);
+    res.status(500).json({ message: 'Failed to restrict user.', error: err.message });
+  }
+});
+
+// GET /api/report - Get all reports (admin only)
 router.get('/list', auth, async (req, res) => {
   try {
     const reports = await Report.find()

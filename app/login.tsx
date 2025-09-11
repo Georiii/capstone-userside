@@ -54,6 +54,12 @@ export default function Login() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || errorMessage;
+          
+          // Handle account restriction
+          if (response.status === 403 && errorData.restrictionReason) {
+            const daysRemaining = errorData.daysRemaining || 0;
+            errorMessage = `Your account was suspended for ${errorData.restrictionReason}. ${daysRemaining} days remaining.`;
+          }
         } catch {
           const textResponse = await response.text();
           console.error('Non-JSON response:', textResponse);
