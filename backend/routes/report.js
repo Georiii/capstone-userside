@@ -48,15 +48,15 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'You cannot report yourself.' });
     }
 
-    // Check if this user has already reported the same user
-    const existingReport = await Report.findOne({
+    // Check if this user has already reported the same user (allow up to 3 reports)
+    const existingReports = await Report.find({
       reporterId,
       reportedUserId,
       status: { $in: ['pending', 'reviewed'] }
     });
 
-    if (existingReport) {
-      return res.status(400).json({ message: 'You have already reported this user.' });
+    if (existingReports.length >= 3) {
+      return res.status(400).json({ message: 'You have already reported this user 3 times. Please wait for admin review.' });
     }
 
     const report = new Report({
@@ -85,7 +85,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // GET /api/report/list - Get all reports (admin only)
-router.get('/list', auth, async (req, res) => {
+router.get('/list', async (req, res) => {
   try {
     // Check if user is admin (you might want to add admin role check here)
     const reports = await Report.find()

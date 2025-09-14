@@ -6,6 +6,37 @@ const User = require('../models/User');
 
 const router = express.Router();
 
+// Admin login endpoint
+router.post('/admin/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    // Simple admin credentials check (in production, use proper admin table)
+    if (username === 'admin' && password === 'admin123') {
+      const token = jwt.sign(
+        { 
+          userId: 'admin',
+          role: 'admin',
+          username: 'admin'
+        }, 
+        JWT_SECRET, 
+        { expiresIn: '24h' }
+      );
+      
+      res.json({ 
+        message: 'Admin login successful.', 
+        token,
+        admin: { username: 'admin', role: 'admin' }
+      });
+    } else {
+      res.status(401).json({ message: 'Invalid admin credentials.' });
+    }
+  } catch (err) {
+    console.error('Admin login error:', err);
+    res.status(500).json({ message: 'Admin login failed.', error: err.message });
+  }
+});
+
 // Register
 router.post('/register', async (req, res) => {
   try {

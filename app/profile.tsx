@@ -118,7 +118,7 @@ export default function Profile() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/analytics')}>
           <MaterialCommunityIcons name="chart-line" size={32} color="#4B2E2B" />
-          <Text style={styles.actionLabel}>Analytics{`\n`}& Insights</Text>
+          <Text style={styles.actionLabel}>Frequent{`\n`}Data</Text>
         </TouchableOpacity>
       </View>
       {/* Data History */}
